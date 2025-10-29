@@ -1,0 +1,16 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:3000",
+  "executionArgs": {
+    "projectName": "SLI",
+    "projectPath": "c:\\Users\\sahil\\OneDrive\\Desktop\\CODE\\Projects\\SLI\\frontend",
+    "testIds": [],
+    "additionalInstruction": "",
+    "envs": {
+      "API_KEY": "sk-user-rnQwfqte0KjEP0moumGX_qY1AxnpfW8ghocSs4EB-FfHJQE1h8aZJwM8O0Rc6cduLOLpF3v0biJCV1tDwMtGJY6F3jexsyZCau2JJ_Yq37_fxyQvNZ5jZYxFftTsrNtwHLc"
+    }
+  },
+  "proxy": "http://9508ebe3-995a-424a-9556-0dd50f4ed20f:gCth8PPGDFRUNBz9oScLG025FMHvtp5P@tun.testsprite.com:8080"
+}

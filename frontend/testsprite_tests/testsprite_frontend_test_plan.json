@@ -1,0 +1,406 @@
+[
+  {
+    "id": "TC001",
+    "title": "Home Tab Loads Correctly with Intro and Features",
+    "description": "Verify that the Home tab loads successfully showing welcome heading, feature cards, and navigation is functional.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Launch the application and navigate to the Home tab"
+      },
+      {
+        "type": "assertion",
+        "description": "Check that the heading 'Welcome to Sign Language Interpreter' is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify feature cards for Detect, Translate, and History are visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify Home tab navigation button is active and clickable"
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Successful Webcam Permission and Start Detection",
+    "description": "Test that the user can grant webcam permission, start detection, and the system begins processing video frames.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the Detect tab"
+      },
+      {
+        "type": "action",
+        "description": "When prompted, grant webcam permission"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the webcam video feed is visible and streaming"
+      },
+      {
+        "type": "action",
+        "description": "Click the Start Detection button"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm that detection process begins, showing detected phrase and confidence"
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Stop Detection Disables Webcam and Updates UI",
+    "description": "Verify that clicking Stop Detection halts webcam feed and updates UI accordingly without errors.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Start detection by enabling webcam and clicking Start Detection"
+      },
+      {
+        "type": "action",
+        "description": "Click the Stop Detection button"
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure webcam feed stops streaming"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify detection results are no longer updated"
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Detection Accuracy Validation Under Normal Conditions",
+    "description": "Check that the detection results show phrases with confidence scores above or equal to 85% in a normal scenario.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Start detection and perform well-known sign gestures"
+      },
+      {
+        "type": "assertion",
+        "description": "Detected phrase is accurate and confidence score is >= 85%"
+      },
+      {
+        "type": "assertion",
+        "description": "Alternative predictions are shown correctly ranked by confidence percentage"
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Detection Processing Time Below 200 milliseconds",
+    "description": "Verify the time from camera frame capture to detection display is within 200 milliseconds.",
+    "category": "performance",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Start detection and perform gesture"
+      },
+      {
+        "type": "assertion",
+        "description": "Measure latency from frame capture to detected phrase display"
+      },
+      {
+        "type": "assertion",
+        "description": "Assert detection processing time is less than or equal to 200 milliseconds"
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Language Selection Changes Translation Display",
+    "description": "Check that selecting different languages translates the detected phrase accordingly and updates the UI correctly.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Detect a known phrase via webcam"
+      },
+      {
+        "type": "action",
+        "description": "Select each supported language from the dropdown one-by-one"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify translated text updates correctly for the selected language"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a loading indicator appears during translation fetch"
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Translation Accuracy for All Supported Languages",
+    "description": "Validate that the translations for detected phrases are accurate for each supported language: English, Spanish, French, German, Hindi, Chinese, Japanese, Korean, Arabic, Portuguese.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Perform detection of a known phrase"
+      },
+      {
+        "type": "action",
+        "description": "Change language selector to each supported language"
+      },
+      {
+        "type": "assertion",
+        "description": "For each language, confirm the translation text matches expected phrase meaning"
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Detection History Records All Entries Correctly",
+    "description": "Verify all detected phrases are recorded in History with correct timestamps, confidence scores, translations, and selected language metadata.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Perform 3 distinct detections with different phrases and languages"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to History tab"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify history table shows all 3 entries with correct timestamps and matching phrases"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm confidence scores and translations correspond to each entry"
+      },
+      {
+        "type": "assertion",
+        "description": "Check language metadata is displayed correctly for each record"
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Clear Detection History with Confirmation",
+    "description": "Test clearing detection history triggers confirmation and on confirmation, history is fully cleared.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to History tab with existing entries"
+      },
+      {
+        "type": "action",
+        "description": "Click Clear History button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a confirmation dialog appears requesting user confirmation"
+      },
+      {
+        "type": "action",
+        "description": "Cancel the confirmation and verify history remains intact"
+      },
+      {
+        "type": "action",
+        "description": "Click Clear History button again and confirm to clear"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify all history records are removed"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm a user-friendly empty state message is displayed"
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Backend Health Status Indicator Updates Correctly",
+    "description": "Check that the backend connection status indicator shows green/Connected when API is healthy and red/Disconnected when API is down.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Launch the app connected to the backend"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the health indicator shows green color and 'Connected' badge"
+      },
+      {
+        "type": "action",
+        "description": "Simulate backend API failure or disconnect"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the indicator changes to red color and badge shows 'Disconnected'"
+      },
+      {
+        "type": "action",
+        "description": "Restore backend connection"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm the indicator goes back to green and badge displays 'Connected'"
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Backend Health Check Executes Every 10 Seconds",
+    "description": "Verify that the backend health status is polled and updated every 10 seconds during app usage.",
+    "category": "performance",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open developer tools network tab and filter health check API requests"
+      },
+      {
+        "type": "action",
+        "description": "Observe health check request frequency over 30 seconds"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm health check API is called approximately every 10 seconds"
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Side Navigation Bar Allows Seamless Switching",
+    "description": "Verify the side navigation bar icons and buttons allow switching between Home, Detect, and History tabs smoothly with UI feedback.",
+    "category": "ui",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Click the Home tab button in the sidebar"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm the Home tab content is displayed"
+      },
+      {
+        "type": "action",
+        "description": "Click the Detect tab button"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm the Detect tab page is shown with webcam feed ready"
+      },
+      {
+        "type": "action",
+        "description": "Click the History tab button"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm the History page is displayed with detection records"
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Webcam Permission Denied Shows Appropriate Error",
+    "description": "Verify user denial of webcam permission results in informative error message and no detection starts.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to Detect tab"
+      },
+      {
+        "type": "action",
+        "description": "Deny the browser's request for webcam permission"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify error message is displayed indicating webcam permission is required"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm the Start Detection button remains disabled or no detection occurs"
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Handle No Detection Scenario Gracefully",
+    "description": "Verify the app UI behaves correctly when no sign language gesture is detected (e.g., shows 'no detection' or similar feedback).",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Start detection and keep a non-sign language pose in front of webcam"
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure UI shows appropriate message or empty result instead of stale or incorrect data"
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "UI Responsiveness and Layout on Different Screen Sizes",
+    "description": "Verify the application UI including navigation bar, tabs, buttons, tables, and detection display renders correctly and remains usable on various screen sizes and resolutions.",
+    "category": "ui",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open the app on desktop, tablet, and mobile viewport sizes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify side navigation transforms or remains accessible appropriately"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm detection results, translation display, and history table content are visible and readable"
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "Alternative Predictions Show Correct Confidence Bars",
+    "description": "Test that alternative predicted phrases appear with correct confidence percentage bars matching the data.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Start detection and perform ambiguous or complex signs with multiple valid predictions"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify alternative predictions are listed ranked by confidence"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm confidence bars visually correspond to confidence score values"
+      }
+    ]
+  }
+]

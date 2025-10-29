@@ -1,0 +1,189 @@
+{
+  "tech_stack": [
+    "React",
+    "Vite",
+    "JavaScript",
+    "Tailwind CSS",
+    "Axios",
+    "Framer Motion",
+    "React Webcam"
+  ],
+  "features": [
+    {
+      "name": "Landing Page / Home",
+      "description": "Welcome page with introduction to the Sign Language Interpreter application and feature overview",
+      "files": ["src/App.jsx", "src/components/Header.jsx", "src/components/Navbar.jsx"],
+      "ui_elements": [
+        {
+          "type": "navigation",
+          "selector": "[data-tab='home']",
+          "description": "Home tab navigation button"
+        },
+        {
+          "type": "heading",
+          "selector": "h1",
+          "expected_text": "Welcome to Sign Language Interpreter"
+        },
+        {
+          "type": "text",
+          "description": "Feature cards showing Detect, Translate, and History capabilities"
+        }
+      ]
+    },
+    {
+      "name": "Real-time Sign Language Detection",
+      "description": "Webcam-based sign language detection with real-time prediction and confidence scores",
+      "files": [
+        "src/App.jsx",
+        "src/components/WebcamCapture.jsx",
+        "src/components/DetectionDisplay.jsx"
+      ],
+      "ui_elements": [
+        {
+          "type": "navigation",
+          "selector": "[data-tab='detect']",
+          "description": "Detection tab navigation button"
+        },
+        {
+          "type": "video",
+          "description": "Webcam video feed for capturing sign language gestures"
+        },
+        {
+          "type": "button",
+          "description": "Start/Stop Detection button to control webcam capture"
+        },
+        {
+          "type": "display",
+          "description": "Detection results showing detected phrase and confidence percentage"
+        },
+        {
+          "type": "list",
+          "description": "Alternative predictions with confidence bars"
+        }
+      ],
+      "user_flow": [
+        "Navigate to 'Detect' tab",
+        "Allow webcam permissions",
+        "Click 'Start Detection' button",
+        "Perform sign language gesture in front of camera",
+        "View detected phrase with confidence score",
+        "See alternative predictions ranked by confidence"
+      ]
+    },
+    {
+      "name": "Language Translation",
+      "description": "Multi-language translation of detected sign language phrases",
+      "files": [
+        "src/App.jsx",
+        "src/components/LanguageSelector.jsx",
+        "src/services/translationService.js"
+      ],
+      "ui_elements": [
+        {
+          "type": "dropdown",
+          "selector": "select",
+          "description": "Language selector dropdown for choosing target translation language"
+        },
+        {
+          "type": "display",
+          "description": "Translated text display area"
+        },
+        {
+          "type": "loader",
+          "description": "Loading indicator during translation"
+        }
+      ],
+      "supported_languages": [
+        "English (en)",
+        "Spanish (es)",
+        "French (fr)",
+        "German (de)",
+        "Hindi (hi)",
+        "Chinese (zh)",
+        "Japanese (ja)",
+        "Korean (ko)",
+        "Arabic (ar)",
+        "Portuguese (pt)"
+      ]
+    },
+    {
+      "name": "Detection History",
+      "description": "Historical record of all detected signs with timestamps, confidence scores, and translations",
+      "files": [
+        "src/App.jsx",
+        "src/components/HistoryTable.jsx"
+      ],
+      "ui_elements": [
+        {
+          "type": "navigation",
+          "selector": "[data-tab='history']",
+          "description": "History tab navigation button"
+        },
+        {
+          "type": "table",
+          "description": "History table with columns: Time, Detected Phrase, Confidence, Translation, Language"
+        },
+        {
+          "type": "button",
+          "description": "Clear History button to delete all history records"
+        },
+        {
+          "type": "display",
+          "description": "Empty state message when no history exists"
+        }
+      ],
+      "user_flow": [
+        "Navigate to 'History' tab",
+        "View list of all previously detected signs",
+        "See timestamps, phrases, confidence scores, and translations",
+        "Optionally clear history with confirmation dialog"
+      ]
+    },
+    {
+      "name": "Backend Health Check",
+      "description": "Monitor backend API connectivity status and display connection status to user",
+      "files": [
+        "src/App.jsx",
+        "src/components/Header.jsx"
+      ],
+      "ui_elements": [
+        {
+          "type": "indicator",
+          "description": "Visual connection status indicator (green for connected, red for disconnected)"
+        },
+        {
+          "type": "badge",
+          "description": "Status badge showing 'Connected' or 'Disconnected'"
+        }
+      ],
+      "functionality": [
+        "Check backend health endpoint on app load",
+        "Periodically check backend status every 10 seconds",
+        "Display connection status in header",
+        "Show visual feedback to user about backend availability"
+      ]
+    },
+    {
+      "name": "Responsive Navigation",
+      "description": "Side navigation bar for switching between different application sections",
+      "files": [
+        "src/components/Navbar.jsx"
+      ],
+      "ui_elements": [
+        {
+          "type": "nav",
+          "description": "Vertical sidebar navigation with tabs"
+        },
+        {
+          "type": "button",
+          "tabs": ["Home", "Detect", "History"],
+          "description": "Tab buttons for navigating between sections"
+        },
+        {
+          "type": "icons",
+          "description": "Visual icons for each navigation tab"
+        }
+      ]
+    }
+  ]
+}
