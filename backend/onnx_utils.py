@@ -70,18 +70,14 @@ class ONNXSignLanguageModel:
         # Resize
         image = image.resize(target_size, Image.Resampling.LANCZOS)
         
-        # Convert to array and standardize like backend
+        # Match ML/train_mobilenet.py: image / 127.5 - 1.0
         img = np.array(image, dtype=np.float32)
         try:
             import tensorflow as tf
             tensor = tf.convert_to_tensor(img)
-            tensor = tf.image.per_image_standardization(tensor)
-            img_array = tensor.numpy()
+            img_array = (tensor / 127.5 - 1.0).numpy()
         except Exception:
-            m = np.mean(img, dtype=np.float32)
-            s = np.std(img, dtype=np.float32)
-            s = float(max(s, 1.0/np.sqrt(img.size)))
-            img_array = (img - m) / s
+            img_array = img / 127.5 - 1.0
         
         # Add batch dimension: (H, W, C) -> (1, H, W, C)
         img_array = np.expand_dims(img_array, axis=0)

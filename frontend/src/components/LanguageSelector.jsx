@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion } from 'framer-motion';
 
 const LanguageSelector = ({ selectedLanguage, onLanguageChange, translation, isTranslating }) => {
   const languages = [
@@ -23,7 +22,6 @@ const LanguageSelector = ({ selectedLanguage, onLanguageChange, translation, isT
         </label>
       </div>
 
-      {/* Language Dropdown */}
       <div className="relative">
         <select
           value={selectedLanguage}
@@ -43,43 +41,21 @@ const LanguageSelector = ({ selectedLanguage, onLanguageChange, translation, isT
         </div>
       </div>
 
-      {/* Translation Display */}
       {translation && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-gray-800 rounded-xl p-6 border-l-4 border-blue-500"
-        >
+        <div className="bg-gray-800 rounded-xl p-6 border-l-4 border-blue-500 transition-opacity duration-200">
           <div className="flex items-start justify-between mb-2">
             <h3 className="text-gray-400 text-sm font-semibold uppercase">Translation</h3>
-            {isTranslating && (
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                className="text-blue-400"
-              >
-                ⏳
-              </motion.div>
-            )}
+            {isTranslating && <span className="text-blue-400 animate-pulse">⏳</span>}
           </div>
-          <motion.p
-            key={translation}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="text-white text-3xl font-semibold"
-          >
-            {translation}
-          </motion.p>
-        </motion.div>
+          <p className="text-white text-3xl font-semibold">{translation}</p>
+        </div>
       )}
 
-      {/* Language Quick Select Pills */}
       <div className="flex flex-wrap gap-2">
         {languages.slice(0, 5).map((lang) => (
-          <motion.button
+          <button
             key={lang.code}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            type="button"
             onClick={() => onLanguageChange(lang.code)}
             className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
               selectedLanguage === lang.code
@@ -88,7 +64,7 @@ const LanguageSelector = ({ selectedLanguage, onLanguageChange, translation, isT
             }`}
           >
             {lang.flag} {lang.name}
-          </motion.button>
+          </button>
         ))}
       </div>
     </div>

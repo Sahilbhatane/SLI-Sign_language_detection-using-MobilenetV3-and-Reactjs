@@ -18,8 +18,8 @@ Choose options from the menu to install, train, and run.
 pip install -r requirements.txt
 cd frontend && npm install && cd ..
 
-# 2. Train model (30-60 min)
-python ML/train_v2.py
+# 2. Train model (30–60 min with GPU; longer on CPU)
+python ML/train_mobilenet.py
 
 # 3. Start backend (Terminal 1)
 python backend/main.py
@@ -33,6 +33,16 @@ cd frontend && npm run dev
 - Backend: http://localhost:8000
 - API Docs: http://localhost:8000/docs
 
+**Frontend tests:**
+```bash
+cd frontend && npm test
+```
+
+**Preprocess normalization (Python):**
+```bash
+python ML/test_preprocess_norm.py
+```
+
 ---
 
 ## Project Structure
@@ -41,16 +51,18 @@ cd frontend && npm run dev
 SLI/
 ├── backend/              # FastAPI server
 │   ├── main.py          # API endpoints
+│   ├── ensemble_inference.py  # ONNX inference + preprocessing
 │   ├── model_v2.onnx    # AI model
-│   └── class_labels.txt # 43 sign classes
+│   └── class_labels.txt # sign phrase classes
 ├── frontend/            # React app
-│   ├── src/            # Components
-│   └── dist/           # Production build
-├── ML/                 # Training scripts
-│   ├── train_v2.py     # Main training
-│   └── inference.py    # Test model
-├── data/               # Training images (43 classes)
-├── run.bat            # Main launcher
+│   ├── src/             # Components
+│   └── dist/            # Production build
+├── ML/                  # Training & evaluation
+│   ├── train_mobilenet.py   # Main training (MobileNetV3-Large)
+│   ├── evaluate_model.py    # Offline metrics
+│   └── inference.py         # Test ONNX on images
+├── data/                # Training images (one folder per class)
+├── run.bat              # Windows launcher
 └── requirements.txt   # Python dependencies
 ```
 
@@ -58,13 +70,13 @@ SLI/
 
 ## Features
 
--  Real-time webcam detection
--  43 sign language phrases
--  Multi-language translation (9 languages)
--  Detection history tracking
--  85-95% accuracy
--  FastAPI backend with REST API
--  React frontend with TailwindCSS
+- Real-time webcam detection
+- Phrase-level sign classes (see `backend/class_labels.txt`)
+- Multi-language translation (9 languages)
+- Optional browser voice output for stable detections
+- Detection history tracking
+- FastAPI backend with REST API (`/predict` accepts `min_confidence` 0–1)
+- React frontend with TailwindCSS
 
 ---
 
@@ -74,13 +86,11 @@ SLI/
 - Python, TensorFlow, FastAPI, ONNX Runtime
 
 **Frontend:**
-- React, Vite, TailwindCSS, Framer Motion
+- React, Vite, TailwindCSS
 
 **Model:**
-- EfficientNetB3 (transfer learning)
-- Input: 300×300 RGB images
-- Output: 43 classes
-- Size: ~50MB
+- MobileNetV3-Large (transfer learning), 224×224 RGB
+- Training normalization: `image / 127.5 - 1.0` (matched at ONNX inference)
 
 ---
 
@@ -94,7 +104,7 @@ taskkill /PID <pid> /F
 
 **Model not found:**
 ```bash
-python ML/train_v2.py
+python ML/train_mobilenet.py
 ```
 
 **Dependencies error:**
@@ -111,4 +121,3 @@ pip install -r requirements.txt --force-reinstall
 - **FastAPI**: https://fastapi.tiangolo.com
 
 ---
-

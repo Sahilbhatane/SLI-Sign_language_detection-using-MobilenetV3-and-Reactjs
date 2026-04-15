@@ -1,0 +1,40 @@
+# Python
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ML / local outputs
+ML/eval_out*/
+ML/eval_out_smoke/
+backend/logs/
+*.h5
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Node (if ever at repo root)
+node_modules/
+
+# OS & editors
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+*.swo

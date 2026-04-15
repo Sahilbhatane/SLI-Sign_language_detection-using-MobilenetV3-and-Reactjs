@@ -245,16 +245,13 @@ class ONNXSignLanguageModel:
             image = image.resize(ts, Image.Resampling.LANCZOS)
 
             img = np.array(image, dtype=np.float32)
+            # Match ML/train_mobilenet.py: MobileNetV3 preprocessing (image / 127.5 - 1.0)
             try:
                 tensor = tf.convert_to_tensor(img)
-                tensor = tf.image.per_image_standardization(tensor)
-                img_std = tensor.numpy()
+                img_std = (tensor / 127.5 - 1.0).numpy()
             except Exception as e:
-                logger.warning(f"TF standardization failed, using numpy fallback: {e}")
-                m = np.mean(img, dtype=np.float32)
-                s = np.std(img, dtype=np.float32)
-                s = float(max(s, 1.0/np.sqrt(img.size)))
-                img_std = (img - m) / s
+                logger.warning(f"TF normalize failed, using numpy fallback: {e}")
+                img_std = img / 127.5 - 1.0
 
             img_std = np.expand_dims(img_std, axis=0)
             return img_std

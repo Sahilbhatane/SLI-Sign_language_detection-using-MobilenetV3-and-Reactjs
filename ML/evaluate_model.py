@@ -89,10 +89,9 @@ def preprocess_pil(img: Image.Image, target_size: Tuple[int, int]) -> np.ndarray
         img = img.convert('RGB')
     img = img.resize((target_size[1], target_size[0]), Image.Resampling.LANCZOS)
     arr = np.array(img, dtype=np.float32)
-    # per-image standardization (as training/inference)
+    # Match ML/train_mobilenet.py and backend inference: image / 127.5 - 1.0
     t = tf.convert_to_tensor(arr)
-    t = tf.image.per_image_standardization(t)
-    return t.numpy()
+    return (t / 127.5 - 1.0).numpy()
 
 
 def batched(iterable, batch_size: int):

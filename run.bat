@@ -86,7 +86,7 @@ echo.
 set /p confirm="Continue? (y/n): "
 if /i not "%confirm%"=="y" goto menu
 echo.
-python ML/train_optimized.py
+python ML/train_mobilenet.py
 echo.
 echo ✓ Training completed!
 echo.
@@ -133,7 +133,7 @@ echo Starting FastAPI Server...
 echo ========================================
 if not exist "backend\model_v2.onnx" (
     echo [WARNING] model_v2.onnx not found!
-    echo Please train the model first (option 3^)
+    echo Please train the model first (option 4^)
     echo.
     set /p continue="Continue anyway? (y/n): "
     if /i not "%continue%"=="y" goto menu

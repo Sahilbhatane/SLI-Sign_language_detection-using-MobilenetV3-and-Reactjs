@@ -36,6 +36,12 @@ class PredictionRequest(BaseModel):
     """Request model for prediction endpoint"""
     image: str = Field(..., description="Base64-encoded image data")
     top_k: Optional[int] = Field(default=5, ge=1, le=10, description="Number of top predictions to return")
+    min_confidence: Optional[float] = Field(
+        default=0.6,
+        ge=0.0,
+        le=1.0,
+        description="Minimum top-1 confidence (0-1) to accept a class; below this returns Detecting...",
+    )
     
     @validator('image')
     def validate_base64(cls, v):
@@ -62,9 +68,10 @@ class PredictionResponse(BaseModel):
     """Response model for prediction endpoint"""
     success: bool
     prediction: str
-    confidence: float
+    confidence: float  # 0-100 when accepted; 0 when below min_confidence
     predictions: list[Prediction]
     processing_time_ms: float
+    min_confidence: float = Field(default=0.6, description="Threshold used for this response (0-1)")
 
 
 class HealthResponse(BaseModel):
@@ -208,9 +215,9 @@ async def predict_sign(request: PredictionRequest):
         # Calculate processing time
         processing_time = (time.time() - start_time) * 1000  # Convert to ms
         
-        # Threshold logic: if top confidence < 0.6, return Detecting...
+        min_conf = float(request.min_confidence if request.min_confidence is not None else 0.6)
         top = predictions[0]
-        if top['confidence'] < 0.6:
+        if top['confidence'] < min_conf:
             pred_label = "Detecting..."
             pred_conf_percent = 0.0
         else:
@@ -223,7 +230,8 @@ async def predict_sign(request: PredictionRequest):
             prediction=pred_label,
             confidence=pred_conf_percent,
             predictions=[Prediction(**pred) for pred in predictions],
-            processing_time_ms=round(processing_time, 2)
+            processing_time_ms=round(processing_time, 2),
+            min_confidence=min_conf,
         )
         
         logger.info(f"✓ Prediction: {response.prediction} ({response.confidence:.2f}%) - {processing_time:.2f}ms")
