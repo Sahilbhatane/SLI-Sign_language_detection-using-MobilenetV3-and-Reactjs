@@ -1,0 +1,9 @@
+# Map external dataset labels (keys) to folder names under data/ (values).
+# Keys are matched case-insensitively after normalizing spaces, hyphens, and underscores.
+#
+# Examples:
+#   stop: stop
+#   "good-morning": good morning
+
+stop: stop
+hello: hello

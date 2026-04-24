@@ -23,11 +23,30 @@ ML/eval_out*/
 ML/eval_out_smoke/
 backend/logs/
 *.h5
+backend/training_history.png
+
+# Local datasets and downloads (keep tracked READMEs)
+data/*
+!data/README.md
+data_preprocessed/*
+!data_preprocessed/.gitkeep
+external/
+datasets_raw/
+evaluation/
+ML/fixtures/ingest_smoke_out/
+
+# Archives often used for Kaggle/HF drops (keep out of git)
+*.zip
+*.tar.gz
+*.7z
 
 # Environment & secrets
 .env
 .env.*
 !.env.example
+
+# Personal / private docs (kept local, never committed)
+docs/private/
 
 # Node (if ever at repo root)
 node_modules/

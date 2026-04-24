@@ -13,7 +13,12 @@ echo.
 echo === SETUP ===
 echo 1. Install dependencies (backend)
 echo 2. Install frontend dependencies
-echo 4. Train model
+echo === TRAINING ===
+echo 4. Train model (EfficientNetV2-S - recommended)
+echo 17. Train model (MobileNetV3-Large - legacy)
+echo 18. Download ISL phrase datasets (Mendeley)
+echo 19. Ingest external images into data/ (merge new dataset)
+echo === INFERENCE / UI ===
 echo 5. Test model (single image)
 echo 6. Test model (random samples)
 echo 7. Start FastAPI server
@@ -22,13 +27,14 @@ echo 9. Start React frontend (dev)
 echo 10. Build frontend (production)
 echo 11. View model info
 echo 12. Open API documentation
+echo === OTHER ===
 echo 13. Preprocess dataset (MediaPipe Hands)
 echo 14. Evaluate model (H5/ONNX)
 echo 15. Run end-to-end pipeline test
 echo 0. Exit
 echo.
 
-set /p choice="Enter your choice (0-15): "
+set /p choice="Enter your choice (0-19): "
 
 if "%choice%"=="1" goto install
 if "%choice%"=="2" goto install_frontend
@@ -44,6 +50,9 @@ if "%choice%"=="12" goto api_docs
 if "%choice%"=="13" goto preprocess
 if "%choice%"=="14" goto evaluate
 if "%choice%"=="15" goto pipeline_test
+if "%choice%"=="17" goto train_mobilenet
+if "%choice%"=="18" goto download_isl
+if "%choice%"=="19" goto ingest_external
 if "%choice%"=="0" goto exit
 
 echo Invalid choice. Please try again.
@@ -78,18 +87,65 @@ goto menu
 
 :train
 echo.
-echo Starting model training...
+echo Training EfficientNetV2-S (ImageNet weights, mixed precision on GPU)
 echo ========================================
-echo This may take 30-60 minutes with GPU
-echo or 2-4 hours with CPU.
+echo This uses data/ (existing + any newly ingested images).
+echo Estimated time:
+echo   - CUDA GPU (e.g. RTX 3050+): ~30-90 minutes depending on dataset size
+echo   - CPU only: several hours
 echo.
+set /p confirm="Continue? (y/n): "
+if /i not "%confirm%"=="y" goto menu
+echo.
+python ML/train_efficientnetv2.py
+echo.
+echo Training completed. Outputs in backend/: model_v2.onnx, best_model.h5, class_labels.txt
+echo.
+pause
+goto menu
+
+:train_mobilenet
+echo.
+echo Training MobileNetV3-Large (legacy, smaller/faster but less accurate)
+echo ========================================
 set /p confirm="Continue? (y/n): "
 if /i not "%confirm%"=="y" goto menu
 echo.
 python ML/train_mobilenet.py
 echo.
-echo ✓ Training completed!
+pause
+goto menu
+
+:download_isl
 echo.
+echo Downloading Indian Sign Language phrase datasets (CC BY 4.0)
+echo ========================================
+echo   phrases_v2     : Mendeley w7fgy7jvs8 v2  (44 classes x 40 images)
+echo   common_phrases : Mendeley y8vg69brn2     (40 classes x 30 images)
+echo   all            : both of the above
+echo.
+set /p which="Which dataset? (phrases_v2 / common_phrases / all): "
+if "%which%"=="" set which=all
+echo.
+python ML/download_isl_phrases.py --dataset "%which%"
+echo.
+echo Next: inspect datasets_raw/, then use option 19 to merge images into data/.
+pause
+goto menu
+
+:ingest_external
+echo.
+echo Ingest external images into data/ (merge new dataset with existing classes)
+echo ========================================
+set /p src="Source directory (e.g. datasets_raw\phrases_v2): "
+set /p mapping="Mapping YAML (default: ML\external_gloss_mapping.example.yaml): "
+if "%mapping%"=="" set mapping=ML\external_gloss_mapping.example.yaml
+set /p cap="Max images per class (default: 200): "
+if "%cap%"=="" set cap=200
+echo.
+python ML/ingest_external.py --mode local_images --src "%src%" --mapping "%mapping%" --max-per-class %cap%
+echo.
+echo When satisfied, retrain with option 4 (EfficientNetV2-S).
 pause
 goto menu
 

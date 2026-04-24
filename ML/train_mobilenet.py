@@ -68,7 +68,7 @@ class MobileNetConfig:
 # Data Augmentation (Aggressive for small dataset)
 # ==========================
 def _build_augmenter():
-    """Aggressive augmentation for small dataset (40 images/class)."""
+    """Aggressive augmentation (helps small or class-imbalanced folders)."""
     return keras.Sequential([
         layers.RandomFlip("horizontal"),
         layers.RandomRotation(factor=0.15),  # ±54 degrees
@@ -140,6 +140,40 @@ def create_datasets():
     val_ds = val_ds.prefetch(tf.data.AUTOTUNE)
 
     return train_ds, val_ds, class_names
+
+
+def count_images_per_class(data_dir: str, class_names: list) -> list:
+    """Count image files per class folder (order matches Keras class_names)."""
+    valid_ext = {".png", ".jpg", ".jpeg", ".bmp"}
+    root = Path(data_dir)
+    counts: list = []
+    for name in class_names:
+        d = root / name
+        if not d.is_dir():
+            counts.append(0)
+            continue
+        seen = set()
+        for p in d.iterdir():
+            if p.is_file() and p.suffix.lower() in valid_ext:
+                seen.add(p.resolve())
+        counts.append(len(seen))
+    return counts
+
+
+def compute_class_weight_if_imbalanced(counts: list, ratio_threshold: float = 3.0):
+    """
+    If max(count)/min(count among non-zero) >= ratio_threshold, return Keras class_weight dict.
+    Indices match alphabetical class order from image_dataset_from_directory.
+    """
+    positive = [c for c in counts if c > 0]
+    if len(positive) < 2:
+        return None
+    ma, mi = max(positive), min(positive)
+    if mi == 0 or ma / mi < ratio_threshold:
+        return None
+    total = float(sum(counts))
+    n = len(counts)
+    return {i: total / (n * max(1, counts[i])) for i in range(n)}
 
 
 def build_model(num_classes: int):
@@ -288,8 +322,7 @@ def main():
     print("=" * 70)
     print(f"TensorFlow: {tf.__version__}")
     print(f"Model: MobileNetV3-Large (Most Popular & Efficient)")
-    print(f"Dataset: 44 classes, ~40 images/class (Small Dataset)")
-    print(f"Hardware: Ryzen 7 5800H + RTX 3050 6GB + 8GB RAM")
+    print(f"Hardware: Ryzen 7 5800H + RTX 3050 6GB + 8GB RAM (if applicable)")
     print(f"Batch Size: {MobileNetConfig.BATCH_SIZE}")
     print(f"Image Size: {MobileNetConfig.IMG_HEIGHT}x{MobileNetConfig.IMG_WIDTH}")
     print(f"Data dir: {Config.DATA_DIR}\n")
@@ -302,9 +335,22 @@ def main():
     print("[1/5] Loading datasets with aggressive augmentation...")
     train_ds, val_ds, class_names = create_datasets()
     num_classes = len(class_names)
+    per_class_counts = count_images_per_class(Config.DATA_DIR, class_names)
+    total_images = sum(per_class_counts)
+    split = MobileNetConfig.VALIDATION_SPLIT
+    train_est = int(round(total_images * (1.0 - split)))
+    val_est = max(0, total_images - train_est)
+    class_weight = compute_class_weight_if_imbalanced(per_class_counts)
     print(f"Classes: {num_classes}")
-    print(f"Training samples: ~{int(1760 * 0.8)}")
-    print(f"Validation samples: ~{int(1760 * 0.2)}")
+    print(f"Images per class (min/median/max): {min(per_class_counts) if per_class_counts else 0} / "
+          f"{int(np.median(per_class_counts)) if per_class_counts else 0} / "
+          f"{max(per_class_counts) if per_class_counts else 0}")
+    print(f"Total images (on disk, all classes): {total_images}")
+    print(f"Approx. train / val split ({1.0-split:.0%} / {split:.0%}): ~{train_est} / ~{val_est}")
+    if class_weight is not None:
+        print("Applying class_weight in fit() (imbalance ratio >= 3:1).")
+    else:
+        print("class_weight: disabled (balanced enough or missing counts).")
     
     # Save class labels
     class_labels_path = os.path.join(Config.BACKEND_DIR, 'class_labels.txt')
@@ -341,6 +387,7 @@ def main():
         validation_data=val_ds,
         epochs=MobileNetConfig.EPOCHS,
         callbacks=get_callbacks(),
+        class_weight=class_weight,
         verbose=1
     )
 
@@ -368,6 +415,7 @@ def main():
         validation_data=val_ds,
         epochs=MobileNetConfig.FINE_TUNE_EPOCHS,
         callbacks=get_callbacks(),
+        class_weight=class_weight,
         verbose=1
     )
 

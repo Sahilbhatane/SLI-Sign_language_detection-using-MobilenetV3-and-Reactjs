@@ -65,6 +65,20 @@ def load_class_labels(labels_path: Path, data_dir: Path) -> List[str]:
     return sorted([p.name for p in data_dir.iterdir() if p.is_dir()])
 
 
+def warn_extra_data_folders(data_dir: Path, class_names: List[str]) -> None:
+    """Warn when disk has class folders not listed in class_labels (evaluation skips them)."""
+    allowed = set(class_names)
+    if not data_dir.is_dir():
+        return
+    for p in sorted(data_dir.iterdir()):
+        if p.is_dir() and p.name not in allowed:
+            print(
+                f"Warning: folder {p.name!r} exists under dataset root but is not in labels file; "
+                "those images are skipped.",
+                flush=True,
+            )
+
+
 def list_dataset_images(data_dir: Path, class_names: List[str], limit: int | None) -> Tuple[List[Path], np.ndarray]:
     file_paths: List[Path] = []
     labels: List[int] = []
@@ -274,6 +288,8 @@ def main():
     class_names = load_class_labels(labels_path, data_dir)
     if not class_names:
         raise RuntimeError("No class names found; ensure labels file or class folders exist")
+
+    warn_extra_data_folders(data_dir, class_names)
 
     # List dataset images and labels
     files, labels = list_dataset_images(data_dir, class_names, args.limit)

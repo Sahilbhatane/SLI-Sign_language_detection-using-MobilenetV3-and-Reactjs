@@ -1,0 +1,3 @@
+# Used with ML/fixtures/minimal_dataset for dry-run tests of ingest_external.py
+fixture_a: fixture_a
+fixture_b: fixture_b

@@ -16,6 +16,9 @@ print("=" * 80)
 print("TRAINING SCRIPT VALIDATION - Pre-flight Checks")
 print("=" * 80)
 
+# Class count for synthetic architecture tests (independent of real data/ size)
+FIXTURE_ARCH_NUM_CLASSES = 5
+
 # Test counters
 tests_passed = 0
 tests_failed = 0
@@ -43,6 +46,33 @@ def warn(msg):
     """Add a warning message."""
     warnings.append(msg)
     print(f"  ⚠ WARNING: {msg}")
+
+
+def _resolve_data_dir() -> Path:
+    """
+    Prefer SLI_VALIDATION_DATA_DIR, else project data/ with at least one class folder,
+    else ML/fixtures/minimal_dataset (tracked smoke dataset for CI).
+    """
+    root_dir = Path(__file__).resolve().parent.parent
+    env = os.environ.get("SLI_VALIDATION_DATA_DIR")
+    if env:
+        p = Path(env).expanduser().resolve()
+        if p.is_dir() and any(d.is_dir() for d in p.iterdir()):
+            return p
+        raise Exception(f"SLI_VALIDATION_DATA_DIR is not a usable dataset directory: {p}")
+    data_dir = root_dir / "data"
+    if data_dir.is_dir():
+        class_folders = [d for d in data_dir.iterdir() if d.is_dir()]
+        if class_folders:
+            return data_dir
+    fixture = root_dir / "ML" / "fixtures" / "minimal_dataset"
+    if fixture.is_dir() and any(fixture.iterdir()):
+        return fixture
+    raise Exception(
+        "No dataset found. Add class folders under data/, set SLI_VALIDATION_DATA_DIR, "
+        "or keep ML/fixtures/minimal_dataset in the repo."
+    )
+
 
 # ==========================
 # Test 1: Python & TensorFlow Environment
@@ -109,20 +139,12 @@ def test_dependencies():
 def test_directories():
     """Validate project directory structure."""
     root_dir = Path(__file__).resolve().parent.parent
-    data_dir = root_dir / "data"
+    data_dir = _resolve_data_dir()
     backend_dir = root_dir / "backend"
-    
-    if not data_dir.exists():
-        raise Exception(f"Data directory not found: {data_dir}")
-    
-    # Count class folders
     class_folders = [d for d in data_dir.iterdir() if d.is_dir()]
     if len(class_folders) == 0:
         raise Exception(f"No class folders found in {data_dir}")
-    
-    # Create backend directory if needed
     backend_dir.mkdir(exist_ok=True)
-    
     return f"Data: {data_dir} ({len(class_folders)} classes), Backend: {backend_dir}"
 
 # ==========================
@@ -130,8 +152,7 @@ def test_directories():
 # ==========================
 def test_dataset_loading():
     """Test dataset creation and loading."""
-    root_dir = Path(__file__).resolve().parent.parent
-    data_dir = str(root_dir / "data")
+    data_dir = str(_resolve_data_dir())
     
     # Try to load a small batch
     test_ds = keras.utils.image_dataset_from_directory(
@@ -222,7 +243,7 @@ def test_model_building():
     x = base(inputs, training=False)
     x = layers.GlobalAveragePooling2D(name='global_avg_pool')(x)
     x = layers.Dropout(0.3, name='dropout')(x)
-    outputs = layers.Dense(44, activation='softmax', name='predictions')(x)
+    outputs = layers.Dense(FIXTURE_ARCH_NUM_CLASSES, activation='softmax', name='predictions')(x)
     
     model = keras.Model(inputs=inputs, outputs=outputs, name='MobileNetV3_SignLanguage')
     
@@ -230,8 +251,9 @@ def test_model_building():
     dummy_input = tf.random.uniform((1, 224, 224, 3), minval=-1, maxval=1)
     output = model(dummy_input, training=False)
     
-    if output.shape != (1, 44):
-        raise Exception(f"Expected output shape (1, 44), got {output.shape}")
+    expected = (1, FIXTURE_ARCH_NUM_CLASSES)
+    if output.shape != expected:
+        raise Exception(f"Expected output shape {expected}, got {output.shape}")
     
     # Check output is valid probability distribution
     output_sum = tf.reduce_sum(output).numpy()
@@ -263,7 +285,7 @@ def test_compilation():
     x = base(inputs, training=False)
     x = layers.GlobalAveragePooling2D()(x)
     x = layers.Dropout(0.3)(x)
-    outputs = layers.Dense(44, activation='softmax')(x)
+    outputs = layers.Dense(FIXTURE_ARCH_NUM_CLASSES, activation='softmax')(x)
     
     model = keras.Model(inputs=inputs, outputs=outputs)
     
@@ -351,7 +373,7 @@ def test_model_save_load():
     inputs = layers.Input(shape=(224, 224, 3))
     x = base(inputs)
     x = layers.GlobalAveragePooling2D()(x)
-    outputs = layers.Dense(44, activation='softmax')(x)
+    outputs = layers.Dense(FIXTURE_ARCH_NUM_CLASSES, activation='softmax')(x)
     
     model = keras.Model(inputs=inputs, outputs=outputs)
     
@@ -385,7 +407,7 @@ def test_onnx_export():
     inputs = layers.Input(shape=(224, 224, 3))
     x = layers.Conv2D(16, 3, activation='relu')(inputs)
     x = layers.GlobalAveragePooling2D()(x)
-    outputs = layers.Dense(44, activation='softmax')(x)
+    outputs = layers.Dense(FIXTURE_ARCH_NUM_CLASSES, activation='softmax')(x)
     
     model = keras.Model(inputs=inputs, outputs=outputs)
     
@@ -547,15 +569,13 @@ if tests_failed == 0:
     print("\nYou can now run the training with:")
     print("  python train_mobilenet.py")
     print("\nExpected training time:")
-    if 'GPU' in str([t for t in [test_gpu()] if t]):
-        print("  • With GPU: 1-2 hours (90 epochs total)")
-    else:
-        print("  • With CPU: 8-12 hours (90 epochs total)")
+    print("  • With GPU: roughly 1-3 hours depending on dataset size (90 epochs total)")
+    print("  • With CPU: several hours to overnight for large datasets (90 epochs total)")
     print("\nExpected output files in backend/:")
     print("  • best_model.h5 (~20 MB)")
     print("  • model_v2.onnx (~20 MB)")
     print("  • training_history.png (~200 KB)")
-    print("  • class_labels.txt (~1 KB)")
+    print("  • class_labels.txt (one line per class; size depends on vocabulary)")
     sys.exit(0)
 else:
     print("✗ TESTS FAILED - Please fix errors before running training")
