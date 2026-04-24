@@ -23,7 +23,7 @@ ML/eval_out*/
 ML/eval_out_smoke/
 backend/logs/
 *.h5
-backend/training_history.png
+training_history*.png
 
 # Local datasets and downloads (keep tracked READMEs)
 data/*
