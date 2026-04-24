@@ -13,6 +13,7 @@ echo.
 echo === SETUP ===
 echo 1. Install dependencies (backend)
 echo 2. Install frontend dependencies
+echo 3. Sync training data from Hugging Face into data/
 echo === TRAINING ===
 echo 4. Train model (EfficientNetV2-S - recommended)
 echo 17. Train model (MobileNetV3-Large - legacy)
@@ -38,6 +39,7 @@ set /p choice="Enter your choice (0-19): "
 
 if "%choice%"=="1" goto install
 if "%choice%"=="2" goto install_frontend
+if "%choice%"=="3" goto pull_hf_data
 if "%choice%"=="4" goto train
 if "%choice%"=="5" goto test_single
 if "%choice%"=="6" goto test_samples
@@ -57,6 +59,18 @@ if "%choice%"=="0" goto exit
 
 echo Invalid choice. Please try again.
 echo.
+goto menu
+
+:pull_hf_data
+echo.
+echo Syncing training images from Hugging Face (dataset repo into data/)
+echo ========================================
+echo Uses huggingface_hub; run option 1 first if dependencies are missing.
+echo Override repo with: set SLI_HF_DATASET_REPO=namespace/name
+echo.
+python ML\pull_data_from_hf.py
+echo.
+pause
 goto menu
 
 :install
@@ -89,7 +103,7 @@ goto menu
 echo.
 echo Training EfficientNetV2-S (ImageNet weights, mixed precision on GPU)
 echo ========================================
-echo This uses data/ (existing + any newly ingested images).
+echo This uses data/ (sync from Hugging Face with option 3, or local / ingested images).
 echo Estimated time:
 echo   - CUDA GPU (e.g. RTX 3050+): ~30-90 minutes depending on dataset size
 echo   - CPU only: several hours

@@ -18,6 +18,11 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
+# Hugging Face Hub local_dir metadata (created by snapshot_download)
+.cache/
+# HF upload-large-folder resume state (under data/)
+data/.cache/
+
 # ML / local outputs
 ML/eval_out*/
 ML/eval_out_smoke/

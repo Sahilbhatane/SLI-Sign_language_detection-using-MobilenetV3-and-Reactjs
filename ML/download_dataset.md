@@ -2,6 +2,17 @@
 
 Do not commit API keys or `kaggle.json`. Use environment variables or host-level config.
 
+## Canonical dataset (Hugging Face)
+
+The supported way to fill `data/` on a new checkout is the project dataset repo [`SahilBhatane/sli`](https://huggingface.co/datasets/SahilBhatane/sli) (class folders live at the Hub repo root, matching local `data/<class>/`):
+
+```bash
+hf auth whoami
+python ML/pull_data_from_hf.py
+```
+
+Use `SLI_HF_DATASET_REPO` when the images should come from a different namespace (fork, private mirror, or CI secret). Maintainer uploads after local ingestion: `python ML/upload_data_to_hf.py`.
+
 ## Indian Sign Language phrase datasets (primary)
 
 Mendeley datasets are CC BY 4.0 and public. `download_isl_phrases.py` calls the Mendeley public API and downloads presigned S3 URLs; it prints manual steps if that ever fails.

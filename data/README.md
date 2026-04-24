@@ -8,13 +8,20 @@
 
 ## Populating this directory
 
-1. **Download ISL phrase data (recommended):**
+1. **Hugging Face (default):** sync the canonical phrase snapshot into this folder (same layout this repo trains on):
+   ```bash
+   hf auth whoami   # optional: confirm you are logged in
+   python ML/pull_data_from_hf.py
+   ```
+   Use `SLI_HF_DATASET_REPO=namespace/name` to point at another dataset repo if needed.
+
+2. **Download ISL phrase data from Mendeley (optional augmentation):**
    ```bash
    python ML/download_isl_phrases.py --dataset all
    ```
    Archives land under `datasets_raw/<key>/`.
 
-2. **Merge into class folders:**
+3. **Merge into class folders:**
    ```bash
    python ML/ingest_external.py --mode local_images \
        --src datasets_raw/phrases_v2 \
@@ -23,9 +30,11 @@
    ```
    Edit the mapping YAML so each source folder maps to the target `data/<class>` you want.
 
-3. **Your own captures** — just drop additional images into the right `data/<class>/` folder; the next training run picks them up automatically.
+4. **Your own captures** — drop additional images into the right `data/<class>/` folder; the next training run picks them up automatically.
 
-4. **Other corpora** — see [`../DATASETS.md`](../DATASETS.md) for Hugging Face and Kaggle sources, attribution, and license notes.
+5. **Other corpora** — see [`../DATASETS.md`](../DATASETS.md) for Hugging Face and Kaggle sources, attribution, and license notes.
+
+Maintainers refreshing the Hub copy after local merges: `python ML/upload_data_to_hf.py` (write token required).
 
 ## Class balance
 

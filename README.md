@@ -16,11 +16,14 @@ Typical first run:
 
 1. `1` — install Python backend dependencies.
 2. `2` — install frontend dependencies.
-3. `18` — download ISL phrase datasets from Mendeley.
-4. `19` — merge downloaded images into `data/`.
-5. `4` — train EfficientNetV2-S (uses GPU if CUDA is set up).
-6. `7` — start FastAPI (`http://localhost:8000`).
-7. `9` — start React dev server (`http://localhost:3000`).
+3. `3` — sync phrase images from Hugging Face into `data/` (canonical dataset for this repo).
+4. `4` — train EfficientNetV2-S (uses GPU if CUDA is set up).
+5. `7` — start FastAPI (`http://localhost:8000`).
+6. `9` — start React dev server (`http://localhost:3000`).
+
+Confirm Hub access once (any machine): `hf auth whoami`. For a private mirror, set `SLI_HF_DATASET_REPO` before option `3`.
+
+Optional augmentation: `18` / `19` download Mendeley corpora into `datasets_raw/` and merge extra images into `data/`.
 
 **Manual setup:**
 
@@ -28,12 +31,8 @@ Typical first run:
 pip install -r requirements.txt
 cd frontend && npm install && cd ..
 
-# (Optional) bring in Indian Sign Language phrase data
-python ML/download_isl_phrases.py --dataset all
-python ML/ingest_external.py --mode local_images \
-    --src datasets_raw/phrases_v2 \
-    --mapping ML/external_gloss_mapping.example.yaml \
-    --max-per-class 200
+# Populate training images (Hugging Face is the default path)
+python ML/pull_data_from_hf.py
 
 # Train (GPU auto-detected; mixed precision on CUDA)
 python ML/train_efficientnetv2.py
@@ -69,14 +68,12 @@ cd frontend && npm run dev            # terminal B
 
 ## Data
 
-Images live under `data/<class_name>/…`. See [`data/README.md`](data/README.md) for layout rules. The directory itself is git-ignored so large image sets stay out of the repository.
+Images live under `data/<class_name>/…`. See [`data/README.md`](data/README.md) for layout rules. The directory is git-ignored so large image sets never live in git; instead, the project is wired to pull the same phrase snapshot from Hugging Face on demand.
 
-Supported primary sources (phrase-level Indian Sign Language, CC BY 4.0):
+- **Canonical dataset:** [`SahilBhatane/sli`](https://huggingface.co/datasets/SahilBhatane/sli) (`repo_type=dataset`). Use [`ML/pull_data_from_hf.py`](ML/pull_data_from_hf.py) or `run.bat` option `3`. Override the repo id with `SLI_HF_DATASET_REPO` when pointing at a fork or private mirror.
+- **Maintainer refresh:** [`ML/upload_data_to_hf.py`](ML/upload_data_to_hf.py) re-uploads local `data/` after you ingest new sources (requires a write-scoped Hub token).
 
-- Mendeley `w7fgy7jvs8` v2 — 44 phrase classes × 40 images (matches the existing `data/` layout).
-- Mendeley `y8vg69brn2` — 40 common ISL phrases × 30 images.
-
-Secondary sources (ASL / word-level) and licensing notes live in [`DATASETS.md`](DATASETS.md). Download and ingest workflow is documented in [`ML/download_dataset.md`](ML/download_dataset.md).
+Primary upstream sources (phrase-level Indian Sign Language, CC BY 4.0) used to build that snapshot are listed in [`DATASETS.md`](DATASETS.md) (Mendeley `w7fgy7jvs8` v2, etc.). Download and ingest workflow for local augmentation is in [`ML/download_dataset.md`](ML/download_dataset.md).
 
 ---
 
@@ -95,6 +92,8 @@ SLI/
 │   ├── train_mobilenet.py      # Legacy trainer (MobileNetV3-Large)
 │   ├── evaluate_model.py       # Offline metrics + confusion matrix
 │   ├── ingest_external.py      # Merge HF / Kaggle / local media into data/
+│   ├── pull_data_from_hf.py    # Sync data/ from the canonical HF dataset repo
+│   ├── upload_data_to_hf.py    # Maintainer: push data/ to the HF dataset repo
 │   ├── download_isl_phrases.py # Pull Mendeley ISL phrase datasets
 │   ├── download_dataset.md     # Step-by-step download & ingest commands
 │   ├── fixtures/               # Tiny synthetic dataset for CI/preflight
@@ -152,6 +151,7 @@ Training-pipeline preflight (uses `ML/fixtures/minimal_dataset` by default):
 set SLI_VALIDATION_DATA_DIR=ML\fixtures\minimal_dataset
 python ML/test_train_validation.py
 python -m unittest ML.test_dataset_weights -v
+python ML\test_pull_data_from_hf.py
 ```
 
 ---
@@ -167,6 +167,12 @@ taskkill /PID <pid> /F
 **Model not found:**
 ```bash
 python ML/train_efficientnetv2.py
+```
+
+**Empty `data/` or “no class folders” before training:**
+```bash
+hf auth whoami
+python ML/pull_data_from_hf.py
 ```
 
 **GPU not detected:**

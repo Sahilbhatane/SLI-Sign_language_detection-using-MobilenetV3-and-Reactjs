@@ -2,11 +2,17 @@
 
 Use these sources to **expand** images under [`data/`](data/README.md). Always comply with each dataset’s **license** and **citation** requirements before redistributing models or data derived from them.
 
+## Canonical training snapshot (this repository)
+
+| Source | Size | Format | License | Use in this project |
+|--------|------|--------|----------|---------------------|
+| [Hugging Face `SahilBhatane/sli`](https://huggingface.co/datasets/SahilBhatane/sli) | Phrase-level class folders at the dataset repo root (mirrors local `data/<class>/`) | PNG / JPG | Bundle CC BY 4.0 sources (see dataset card) | **Default way to populate `data/`** on a fresh clone: `python ML/pull_data_from_hf.py` or `run.bat` option `3`. Override with `SLI_HF_DATASET_REPO` for a fork or private mirror. |
+
 ## Primary sources — Indian Sign Language, phrase-level
 
 | Source | Size | Format | License | Use in this project |
 |--------|------|--------|----------|---------------------|
-| [Mendeley w7fgy7jvs8 v2](https://data.mendeley.com/datasets/w7fgy7jvs8/2) | 44 classes × 40 images | **PNG** (680×480) | CC BY 4.0 | **Primary image source.** Folder names match `data/` 1:1; ingest directly via the identity mapping helper below. |
+| [Mendeley w7fgy7jvs8 v2](https://data.mendeley.com/datasets/w7fgy7jvs8/2) | 44 classes × 40 images | **PNG** (680×480) | CC BY 4.0 | **Primary upstream image pack.** Folder names match `data/` 1:1; ingest via the identity mapping helper below when building or refreshing the Hub snapshot. |
 | [Mendeley y8vg69brn2](https://data.mendeley.com/datasets/y8vg69brn2/1) | 41 classes × ~900 arrays each | **`.npy` MediaPipe landmark arrays** | CC BY 4.0 | **Not** usable with the EfficientNetV2 image classifier. Useful only if you add a separate landmark-based classifier head. |
 | [Hugging Face `akshaybahadur21/ISLAR`](https://huggingface.co/datasets/akshaybahadur21/ISLAR) | ~30k images | JPG/PNG | MIT | Gated — accept terms on the dataset page first, then set `HF_TOKEN`. |
 
