@@ -1,7 +1,92 @@
-import React from 'react';
-import WebcamCapture from './WebcamCapture';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
-const CameraPanel = ({ onDetection, isActive, transport, onUserMedia }) => {
+import WebcamCapture from './WebcamCapture';
+import { startWebRtcSession } from '../services/webrtcClient';
+
+/**
+ * Orchestrates WebRTC vs REST: on detection start, try WebRTC; on failure or disconnect, REST polling resumes.
+ */
+const CameraPanel = ({ onDetection, isActive, transport, onTransportChange, onFpsSample }) => {
+  const streamRef = useRef(null);
+  const sessionRef = useRef(null);
+  const startGenRef = useRef(0);
+  const [useRestPolling, setUseRestPolling] = useState(true);
+
+  const stopWebRtc = useCallback(() => {
+    try {
+      sessionRef.current?.close();
+    } catch {
+      /* ignore */
+    }
+    sessionRef.current = null;
+    setUseRestPolling(true);
+    onTransportChange?.('rest');
+  }, [onTransportChange]);
+
+  const onPred = useCallback(
+    (msg) => {
+      if (!msg?.success) return;
+      const c = Number(msg.confidence) ?? 0;
+      const confidence01 = c > 1 ? c / 100 : c;
+      onDetection({
+        phrase: msg.prediction,
+        confidence: confidence01,
+        allPredictions: Array.isArray(msg.predictions) ? msg.predictions : [],
+        timestamp: new Date().toISOString(),
+        processingTimeMs: undefined,
+        minConfidence: undefined,
+      });
+    },
+    [onDetection]
+  );
+
+  const handleCapturingChange = useCallback(
+    async (capturing) => {
+      if (!capturing) {
+        stopWebRtc();
+        return;
+      }
+
+      const gen = ++startGenRef.current;
+      const stream = streamRef.current;
+      if (!stream) {
+        setUseRestPolling(true);
+        onTransportChange?.('rest');
+        return;
+      }
+
+      try {
+        const session = await startWebRtcSession(stream, onPred, {
+          onFallback: () => {
+            sessionRef.current = null;
+            setUseRestPolling(true);
+            onTransportChange?.('rest');
+          },
+        });
+        if (gen !== startGenRef.current) {
+          session.close();
+          return;
+        }
+        sessionRef.current = session;
+        setUseRestPolling(false);
+        onTransportChange?.('webrtc');
+      } catch (e) {
+        if (gen !== startGenRef.current) return;
+        console.warn('WebRTC session failed, using REST polling', e);
+        sessionRef.current = null;
+        setUseRestPolling(true);
+        onTransportChange?.('rest');
+      }
+    },
+    [onPred, onTransportChange, stopWebRtc]
+  );
+
+  const handleUserMedia = useCallback((stream) => {
+    streamRef.current = stream;
+  }, []);
+
+  useEffect(() => () => stopWebRtc(), [stopWebRtc]);
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-sm text-gray-400 px-1">
@@ -10,7 +95,14 @@ const CameraPanel = ({ onDetection, isActive, transport, onUserMedia }) => {
           transport: <span className="text-gray-200 font-mono">{transport}</span>
         </span>
       </div>
-      <WebcamCapture onDetection={onDetection} isActive={isActive} onUserMedia={onUserMedia} />
+      <WebcamCapture
+        onDetection={onDetection}
+        isActive={isActive}
+        onUserMedia={handleUserMedia}
+        useRestPolling={useRestPolling}
+        onCapturingChange={handleCapturingChange}
+        onFpsSample={onFpsSample}
+      />
     </div>
   );
 };

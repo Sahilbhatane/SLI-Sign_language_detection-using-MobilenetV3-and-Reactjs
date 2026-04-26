@@ -7,6 +7,7 @@ import DetectionPanel from './components/DetectionPanel';
 import SentencePanel from './components/SentencePanel';
 import ControlsPanel from './components/ControlsPanel';
 import SettingsModal from './components/SettingsModal';
+import DebugObservability from './components/DebugObservability';
 import LanguageSelector from './components/LanguageSelector';
 import HistoryTable from './components/HistoryTable';
 import { translateText } from './services/translationService';
@@ -63,7 +64,9 @@ function App() {
   const [offlineMode, setOfflineMode] = useState(() => readBoolLs(LS_OFFLINE, false));
   const [llmGrammarEnabled, setLlmGrammarEnabled] = useState(() => readBoolLs(LS_LLM_GRAMMAR, false));
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [transport] = useState('rest');
+  const [transport, setTransport] = useState('rest');
+  const [approxFps, setApproxFps] = useState(0);
+  const [llmFollowUpSpoke, setLlmFollowUpSpoke] = useState(false);
   const [usingAiFallback, setUsingAiFallback] = useState(false);
   const [speakingActive, setSpeakingActive] = useState(false);
 
@@ -112,6 +115,10 @@ function App() {
     return (text) => llmCorrectSentence(text, 256);
   }, [llmGrammarEnabled, offlineMode]);
 
+  const onLlmFollowUp = useCallback((used) => {
+    setLlmFollowUpSpoke(Boolean(used));
+  }, []);
+
   const sentence = useSentencePipeline({
     detection,
     voiceEnabled,
@@ -123,7 +130,12 @@ function App() {
     llmGrammarEnabled,
     correctSentence,
     offlineMode,
+    onLlmFollowUp,
   });
+
+  useEffect(() => {
+    if (sentence.isForming) setLlmFollowUpSpoke(false);
+  }, [sentence.isForming]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -353,7 +365,13 @@ function App() {
               )}
 
               <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-                <CameraPanel onDetection={handleDetection} isActive={backendConnected} transport={transport} />
+                <CameraPanel
+                  onDetection={handleDetection}
+                  isActive={backendConnected}
+                  transport={transport}
+                  onTransportChange={setTransport}
+                  onFpsSample={setApproxFps}
+                />
 
                 <div className="space-y-6">
                   <DetectionPanel detection={detection} />
@@ -473,6 +491,15 @@ function App() {
         onClose={() => setSettingsOpen(false)}
         llmGrammarEnabled={llmGrammarEnabled}
         onLlmGrammarEnabledChange={setLlmGrammarEnabled}
+      />
+
+      <DebugObservability
+        transport={transport}
+        approxFps={transport === 'webrtc' ? null : approxFps}
+        lastConfidence={detection?.confidence}
+        ttsProvider={ttsProvider}
+        llmGrammarEnabled={llmGrammarEnabled}
+        llmFollowUpSpoke={llmFollowUpSpoke}
       />
     </div>
   );

@@ -10,6 +10,8 @@ export type SpeakOptions = {
 };
 
 const DEFAULT_COOLDOWN_MS = 1500;
+/** Same phrase is not re-spoken within this window even after cooldown expires. */
+const DEFAULT_SEMANTIC_DEDUPE_MS = 8000;
 
 export function canSpeakDetection(input: { text: string; confidence: number }): boolean {
   const t = String(input.text || '').trim();
@@ -21,6 +23,7 @@ export type TtsServiceDeps = {
   speakEdge?: (text: string, lang: string) => Promise<void>;
   speakServer?: (text: string, lang: string) => Promise<void>;
   cooldownMs?: number;
+  semanticDedupeMs?: number;
   now?: () => number;
 };
 
@@ -54,30 +57,50 @@ async function defaultSpeakServer(text: string, lang: string): Promise<void> {
   }
 }
 
+function semanticPhraseKey(text: string, lang: string, provider: string): string {
+  return `${provider}|${lang}|${String(text).trim().toLowerCase()}`;
+}
+
 export function createTtsService(deps: TtsServiceDeps = {}) {
   const cooldownMs = deps.cooldownMs ?? DEFAULT_COOLDOWN_MS;
+  const semanticDedupeMs = deps.semanticDedupeMs ?? DEFAULT_SEMANTIC_DEDUPE_MS;
   const now = deps.now ?? (() => Date.now());
   const speakEdge = deps.speakEdge ?? defaultSpeakEdge;
   const speakServer = deps.speakServer ?? defaultSpeakServer;
 
   let lastKey = '';
   let lastTime = 0;
+  const lastSpokenPhraseAt = new Map<string, number>();
 
   return {
     reset(): void {
       lastKey = '';
       lastTime = 0;
+      lastSpokenPhraseAt.clear();
     },
     async speak(text: string, lang: string, provider: TtsProvider, options?: SpeakOptions): Promise<void> {
       const trimmed = String(text || '').trim();
       if (!trimmed) return;
 
-      if (options?.confidence !== undefined && !canSpeakDetection({ text: trimmed, confidence: options.confidence })) {
+      if (
+        options?.confidence !== undefined &&
+        !canSpeakDetection({ text: trimmed, confidence: options.confidence })
+      ) {
+        return;
+      }
+
+      const phraseKey = semanticPhraseKey(trimmed, lang, provider);
+      const t = now();
+      const lastPhrase = lastSpokenPhraseAt.get(phraseKey);
+      if (
+        semanticDedupeMs > 0 &&
+        lastPhrase !== undefined &&
+        t - lastPhrase < semanticDedupeMs
+      ) {
         return;
       }
 
       const key = `${provider}:${lang}:${trimmed}`;
-      const t = now();
       if (key === lastKey && t - lastTime < cooldownMs) {
         return;
       }
@@ -87,6 +110,7 @@ export function createTtsService(deps: TtsServiceDeps = {}) {
       if (provider === 'server' || provider === 'elevenlabs') {
         try {
           await speakServer(trimmed, lang);
+          lastSpokenPhraseAt.set(phraseKey, now());
           return;
         } catch {
           // fall through to edge
@@ -94,6 +118,7 @@ export function createTtsService(deps: TtsServiceDeps = {}) {
       }
 
       await speakEdge(trimmed, lang);
+      lastSpokenPhraseAt.set(phraseKey, now());
     },
   };
 }

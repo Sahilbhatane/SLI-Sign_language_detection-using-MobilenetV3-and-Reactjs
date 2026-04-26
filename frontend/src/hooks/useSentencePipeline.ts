@@ -7,6 +7,7 @@ import { DETECTING_PHRASE } from '../utils/signSpeech';
 import {
   appendBufferDedupe,
   finalizeSentenceSpeech,
+  streakReadyForAppend,
   updatePhraseStreak,
   DEFAULT_IDLE_MS,
   DEFAULT_STABLE_FRAMES,
@@ -29,6 +30,7 @@ export function useSentencePipeline({
   llmGrammarEnabled,
   correctSentence,
   offlineMode,
+  onLlmFollowUp,
 }: {
   detection: DetectionPayload | null;
   voiceEnabled: boolean;
@@ -40,12 +42,13 @@ export function useSentencePipeline({
   llmGrammarEnabled: boolean;
   correctSentence?: (text: string) => Promise<string>;
   offlineMode: boolean;
+  onLlmFollowUp?: (used: boolean) => void;
 }) {
   const [buffer, setBuffer] = useState<string[]>([]);
   const [isForming, setIsForming] = useState(false);
   const [sentenceTranslation, setSentenceTranslation] = useState('');
 
-  const streakRef = useRef({ phrase: null as string | null, count: 0 });
+  const streakRef = useRef({ phrase: null as string | null, count: 0, confidences: [] as number[] });
   const bufferRef = useRef<string[]>([]);
 
   const ttsRef = useRef<ReturnType<typeof createTtsService> | null>(null);
@@ -119,13 +122,14 @@ export function useSentencePipeline({
           translation: translatedForSpeech,
           llmGrammarEnabled: o.llmGrammarEnabled && !o.offlineMode,
           runLlm: o.correctSentence,
+          onLlmFollowUp,
         });
 
         setBuffer(() => {
           bufferRef.current = [];
           return [];
         });
-        streakRef.current = { phrase: null, count: 0 };
+        streakRef.current = { phrase: null, count: 0, confidences: [] };
         setIsForming(false);
       })();
     }, DEFAULT_IDLE_MS);
@@ -135,7 +139,7 @@ export function useSentencePipeline({
     if (!voiceEnabled) {
       clearIdle();
       ttsRef.current?.reset();
-      streakRef.current = { phrase: null, count: 0 };
+      streakRef.current = { phrase: null, count: 0, confidences: [] };
       setBuffer(() => {
         bufferRef.current = [];
         return [];
@@ -158,7 +162,7 @@ export function useSentencePipeline({
     armIdle();
 
     if (phrase === DETECTING_PHRASE) {
-      streakRef.current = { phrase: null, count: 0 };
+      streakRef.current = { phrase: null, count: 0, confidences: [] };
       return;
     }
 
@@ -169,7 +173,15 @@ export function useSentencePipeline({
       DEFAULT_STABLE_FRAMES
     );
 
-    if (streakRef.current.count !== DEFAULT_STABLE_FRAMES || conf < 0.95) {
+    if (
+      streakRef.current.count === DEFAULT_STABLE_FRAMES &&
+      !streakReadyForAppend(streakRef.current, DEFAULT_STABLE_FRAMES)
+    ) {
+      streakRef.current = { phrase, count: 1, confidences: [conf] };
+      return;
+    }
+
+    if (!streakReadyForAppend(streakRef.current, DEFAULT_STABLE_FRAMES)) {
       return;
     }
 
@@ -178,6 +190,8 @@ export function useSentencePipeline({
       bufferRef.current = next;
       return next;
     });
+
+    streakRef.current = { phrase: null, count: 0, confidences: [] };
 
     const o = optsRef.current;
     if (!o.voiceEnabled) return;

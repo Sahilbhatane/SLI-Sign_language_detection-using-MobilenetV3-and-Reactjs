@@ -2,7 +2,14 @@ import React, { useRef, useState, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
 import axios from 'axios';
 
-const WebcamCapture = ({ onDetection, isActive, onUserMedia }) => {
+const WebcamCapture = ({
+  onDetection,
+  isActive,
+  onUserMedia,
+  useRestPolling = true,
+  onCapturingChange,
+  onFpsSample,
+}) => {
   const [confidenceThreshold, setConfidenceThreshold] = useState(0.6);
   const webcamRef = useRef(null);
   const [capturing, setCapturing] = useState(false);
@@ -60,10 +67,14 @@ const WebcamCapture = ({ onDetection, isActive, onUserMedia }) => {
       console.error('Prediction error:', err);
       setError(err.response?.data?.detail || err.message || 'Failed to detect sign');
     }
-  }, [isActive, onDetection, confidenceThreshold, onUserMedia]);
+  }, [isActive, onDetection, confidenceThreshold]);
 
   useEffect(() => {
-    if (!isActive || !capturing) {
+    onCapturingChange?.(capturing);
+  }, [capturing, onCapturingChange]);
+
+  useEffect(() => {
+    if (!isActive || !capturing || !useRestPolling) {
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (fpsIntervalRef.current) clearInterval(fpsIntervalRef.current);
       return undefined;
@@ -74,7 +85,9 @@ const WebcamCapture = ({ onDetection, isActive, onUserMedia }) => {
     }, 250);
 
     fpsIntervalRef.current = setInterval(() => {
-      setCapturesPerSec(fpsTickRef.current);
+      const n = fpsTickRef.current;
+      setCapturesPerSec(n);
+      onFpsSample?.(n);
       fpsTickRef.current = 0;
     }, 1000);
 
@@ -82,7 +95,7 @@ const WebcamCapture = ({ onDetection, isActive, onUserMedia }) => {
       clearInterval(intervalRef.current);
       clearInterval(fpsIntervalRef.current);
     };
-  }, [isActive, capturing, captureAndPredict]);
+  }, [isActive, capturing, useRestPolling, captureAndPredict, onFpsSample]);
 
   const toggleCapture = () => {
     setCapturing(!capturing);

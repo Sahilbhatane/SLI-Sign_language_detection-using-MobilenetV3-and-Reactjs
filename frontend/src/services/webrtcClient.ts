@@ -1,8 +1,6 @@
 /**
- * Minimal WebRTC client: connects to `/ws/webrtc`, sends an SDP offer, receives an SDP answer,
- * then receives `prediction` JSON messages from the server.
- *
- * ICE trickle is not implemented yet; use a reachable network path or add TURN for production.
+ * WebRTC client: `/ws/webrtc` signaling, then `prediction` JSON over WebSocket.
+ * ICE trickle is not implemented; use TURN for strict NAT environments.
  */
 
 export type PredictionMessage = {
@@ -11,6 +9,16 @@ export type PredictionMessage = {
   prediction: string;
   confidence: number;
   predictions: unknown;
+};
+
+export type WebRtcSession = {
+  pc: RTCPeerConnection;
+  close: () => void;
+};
+
+export type StartWebRtcOptions = {
+  /** Called when ICE/PC fails, WS errors, or connection drops (idempotent). */
+  onFallback?: (reason: string) => void;
 };
 
 function buildWsUrl(): string {
@@ -26,21 +34,33 @@ function parseIceServers(): RTCIceServer[] {
   return raw.split(',').map((u) => ({ urls: u.trim() }));
 }
 
+/**
+ * Starts a WebRTC session: adds tracks from `stream`, negotiates over WebSocket, then delivers predictions.
+ * Call `close()` to release PC/WS and stop inference callbacks.
+ */
 export async function startWebRtcSession(
   stream: MediaStream,
-  onPrediction: (msg: PredictionMessage) => void
-): Promise<RTCPeerConnection> {
+  onPrediction: (msg: PredictionMessage) => void,
+  options?: StartWebRtcOptions
+): Promise<WebRtcSession> {
+  const onFallback = options?.onFallback;
   const ws = new WebSocket(buildWsUrl());
   const pc = new RTCPeerConnection({ iceServers: parseIceServers() });
 
-  stream.getTracks().forEach((t) => pc.addTrack(t, stream));
+  let closed = false;
+  let fallbackNotified = false;
 
-  await new Promise<void>((resolve, reject) => {
-    ws.addEventListener('open', () => resolve(), { once: true });
-    ws.addEventListener('error', () => reject(new Error('websocket_failed')), { once: true });
-  });
+  const notifyFallback = (reason: string) => {
+    if (fallbackNotified) return;
+    fallbackNotified = true;
+    try {
+      onFallback?.(reason);
+    } catch {
+      /* ignore */
+    }
+  };
 
-  ws.addEventListener('message', (ev) => {
+  const onPredictionMsg = (ev: MessageEvent) => {
     try {
       const msg = JSON.parse(String(ev.data));
       if (msg?.type === 'prediction') {
@@ -49,6 +69,67 @@ export async function startWebRtcSession(
     } catch {
       /* ignore */
     }
+  };
+
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    try {
+      ws.removeEventListener('message', onPredictionMsg);
+    } catch {
+      /* ignore */
+    }
+    try {
+      ws.close();
+    } catch {
+      /* ignore */
+    }
+    try {
+      pc.getSenders().forEach((s) => {
+        try {
+          pc.removeTrack(s);
+        } catch {
+          /* ignore */
+        }
+      });
+    } catch {
+      /* ignore */
+    }
+    try {
+      pc.close();
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const safeFallback = (reason: string) => {
+    notifyFallback(reason);
+    close();
+  };
+
+  stream.getTracks().forEach((t) => pc.addTrack(t, stream));
+
+  pc.addEventListener('connectionstatechange', () => {
+    const st = pc.connectionState;
+    if (st === 'failed' || st === 'disconnected') {
+      safeFallback(`pc:${st}`);
+    }
+  });
+
+  pc.addEventListener('iceconnectionstatechange', () => {
+    const st = pc.iceConnectionState;
+    if (st === 'failed' || st === 'disconnected') {
+      safeFallback(`ice:${st}`);
+    }
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    ws.addEventListener('open', () => resolve(), { once: true });
+    ws.addEventListener('error', () => reject(new Error('websocket_failed')), { once: true });
+  });
+
+  ws.addEventListener('close', () => {
+    if (!closed) safeFallback('ws:close');
   });
 
   const offer = await pc.createOffer();
@@ -56,20 +137,41 @@ export async function startWebRtcSession(
   ws.send(JSON.stringify({ type: 'offer', sdp: offer.sdp, sdpType: offer.type }));
 
   await new Promise<void>((resolve, reject) => {
+    let settled = false;
     const onMsg = (ev: MessageEvent) => {
       try {
         const msg = JSON.parse(String(ev.data));
         if (msg?.type === 'answer' && msg.sdp) {
           ws.removeEventListener('message', onMsg);
-          void pc.setRemoteDescription({ type: msg.sdpType || 'answer', sdp: msg.sdp }).then(resolve, reject);
+          window.clearTimeout(timeoutId);
+          void pc
+            .setRemoteDescription({ type: msg.sdpType || 'answer', sdp: msg.sdp })
+            .then(() => {
+              if (settled) return;
+              settled = true;
+              ws.addEventListener('message', onPredictionMsg);
+              resolve();
+            })
+            .catch((e) => {
+              if (settled) return;
+              settled = true;
+              safeFallback('sdp_set_failed');
+              reject(e instanceof Error ? e : new Error('sdp_set_failed'));
+            });
         }
       } catch {
         /* ignore */
       }
     };
     ws.addEventListener('message', onMsg);
-    setTimeout(() => reject(new Error('webrtc_answer_timeout')), 15_000);
+    const timeoutId = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      ws.removeEventListener('message', onMsg);
+      safeFallback('answer_timeout');
+      reject(new Error('webrtc_answer_timeout'));
+    }, 15_000);
   });
 
-  return pc;
+  return { pc, close };
 }

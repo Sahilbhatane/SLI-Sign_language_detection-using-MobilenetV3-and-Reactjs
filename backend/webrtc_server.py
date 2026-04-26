@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 def register_webrtc(app: FastAPI, get_model: Callable[[], Any]) -> None:
     try:
         from aiortc import RTCPeerConnection, RTCSessionDescription  # type: ignore
-        from aiortc.contrib.media import MediaBlackhole  # type: ignore
     except Exception as e:  # pragma: no cover - optional dependency
         logger.warning("aiortc not available; WebRTC disabled: %s", e)
         return
@@ -35,8 +34,6 @@ def register_webrtc(app: FastAPI, get_model: Callable[[], Any]) -> None:
         await ws.accept()
         pc: Optional[RTCPeerConnection] = None
         track_task: Optional[asyncio.Task] = None
-        blackhole = MediaBlackhole()
-
         async def safe_send(obj: Dict[str, Any]) -> None:
             try:
                 await ws.send_text(json.dumps(obj))
@@ -52,14 +49,12 @@ def register_webrtc(app: FastAPI, get_model: Callable[[], Any]) -> None:
                 if mtype == "offer":
                     offer = RTCSessionDescription(sdp=msg["sdp"], type=msg.get("sdpType", "offer"))
                     pc = RTCPeerConnection()
-                    pc.addTransceiver("video", direction="recvonly")
 
                     @pc.on("track")
                     async def on_track(track):  # noqa: ANN001
                         nonlocal track_task
                         if track.kind != "video":
                             return
-                        blackhole.addTrack(track)
 
                         async def loop():
                             frame_idx = 0
@@ -109,7 +104,9 @@ def register_webrtc(app: FastAPI, get_model: Callable[[], Any]) -> None:
                     await pc.setRemoteDescription(offer)
                     answer = await pc.createAnswer()
                     await pc.setLocalDescription(answer)
-                    await safe_send({"type": "answer", "sdp": pc.localDescription.sdp, "sdpType": pc.localDescription.type})
+                    await safe_send(
+                        {"type": "answer", "sdp": pc.localDescription.sdp, "sdpType": pc.localDescription.type}
+                    )
 
         except WebSocketDisconnect:
             pass

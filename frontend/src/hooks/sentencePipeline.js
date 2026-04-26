@@ -1,3 +1,4 @@
+import { translateText } from '../services/translationService';
 import { DETECTING_PHRASE } from '../utils/signSpeech';
 
 /** @typedef {{ phrase: string; confidence: number }} DetectionLike */
@@ -6,20 +7,59 @@ const DEFAULT_STABLE_FRAMES = 5;
 const DEFAULT_IDLE_MS = 3000;
 
 /**
- * Update streak state for same-phrase consecutive frames (phrase must be accepted, not Detecting).
- * @param {{ phrase: string | null; count: number }} streak
+ * @param {string} a
+ * @param {string} b
+ */
+export function tokenJaccardSimilarity(a, b) {
+  const ta = new Set(
+    String(a || '')
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean)
+  );
+  const tb = new Set(
+    String(b || '')
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean)
+  );
+  if (!ta.size || !tb.size) return 0;
+  let inter = 0;
+  for (const w of ta) {
+    if (tb.has(w)) inter += 1;
+  }
+  const union = ta.size + tb.size - inter;
+  return union ? inter / union : 0;
+}
+
+/**
+ * Update streak state for same-phrase consecutive frames (phrase accepted; each frame conf >= 0.95).
+ * @param {{ phrase: string | null; count: number; confidences?: number[] }} streak
  * @param {string | null} phrase
  * @param {number} confidence01
  * @param {number} required
  */
 export function updatePhraseStreak(streak, phrase, confidence01, required = DEFAULT_STABLE_FRAMES) {
   if (!phrase || phrase === DETECTING_PHRASE || confidence01 < 0.95) {
-    return { phrase: null, count: 0 };
+    return { phrase: null, count: 0, confidences: [] };
   }
   if (streak.phrase === phrase) {
-    return { phrase, count: streak.count + 1 };
+    const confidences = [...(streak.confidences || []), confidence01];
+    return { phrase, count: streak.count + 1, confidences };
   }
-  return { phrase, count: 1 };
+  return { phrase, count: 1, confidences: [confidence01] };
+}
+
+/**
+ * True when the last `required` frames for the streak have average confidence >= minAvg.
+ * @param {{ phrase: string | null; count: number; confidences?: number[] }} streak
+ */
+export function streakReadyForAppend(streak, required = DEFAULT_STABLE_FRAMES, minAvg = 0.97) {
+  if (streak.count < required) return false;
+  const slice = (streak.confidences || []).slice(-required);
+  if (slice.length < required) return false;
+  const avg = slice.reduce((x, y) => x + y, 0) / slice.length;
+  return avg >= minAvg;
 }
 
 /**
@@ -45,6 +85,7 @@ export function appendBufferDedupe(buffer, phrase) {
  * @param {string} params.translation
  * @param {boolean} params.llmGrammarEnabled
  * @param {(text: string) => Promise<string>} [params.runLlm]
+ * @param {(used: boolean) => void} [params.onLlmFollowUp]
  */
 export async function finalizeSentenceSpeech({
   buffer,
@@ -56,6 +97,7 @@ export async function finalizeSentenceSpeech({
   translation,
   llmGrammarEnabled,
   runLlm,
+  onLlmFollowUp,
 }) {
   if (!voiceEnabled || !buffer.length) return;
 
@@ -79,25 +121,44 @@ export async function finalizeSentenceSpeech({
       ? TTS_LANG[selectedLanguage] || selectedLanguage
       : 'en-US';
 
-  await tts.speak('Forming sentence', lang, 'edge');
-
-  let text = raw;
-  if (llmGrammarEnabled && typeof runLlm === 'function') {
-    try {
-      text = await runLlm(raw);
-    } catch {
-      text = raw;
-    }
-  }
-
+  let textForFirstSpeak = raw;
   if (speakTranslation && selectedLanguage !== 'en') {
     const t = (translation || '').trim();
     if (t && !t.startsWith('⚠️')) {
-      text = t;
+      textForFirstSpeak = t;
     }
   }
 
-  await tts.speak(text, lang, ttsProvider);
+  await tts.speak(textForFirstSpeak, lang, ttsProvider);
+
+  if (llmGrammarEnabled && typeof runLlm === 'function') {
+    void (async () => {
+      try {
+        const corrected = (await runLlm(raw)).trim();
+        if (!corrected || corrected === raw) {
+          onLlmFollowUp?.(false);
+          return;
+        }
+        const sim = tokenJaccardSimilarity(raw, corrected);
+        if (sim < 0.72 || sim >= 0.998) {
+          onLlmFollowUp?.(false);
+          return;
+        }
+        let second = corrected;
+        if (speakTranslation && selectedLanguage !== 'en') {
+          try {
+            second = await translateText(corrected, selectedLanguage, 'en');
+          } catch {
+            second = corrected;
+          }
+        }
+        await tts.speak(second, lang, ttsProvider);
+        onLlmFollowUp?.(true);
+      } catch {
+        onLlmFollowUp?.(false);
+      }
+    })();
+  }
 }
 
 export { DEFAULT_STABLE_FRAMES, DEFAULT_IDLE_MS, DETECTING_PHRASE };

@@ -8,6 +8,7 @@ import base64
 import json
 import logging
 import os
+import re
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -16,6 +17,41 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
+
+
+def _token_jaccard(a: str, b: str) -> float:
+    ta = {w for w in re.split(r"\s+", a.lower().strip()) if w}
+    tb = {w for w in re.split(r"\s+", b.lower().strip()) if w}
+    if not ta or not tb:
+        return 0.0
+    inter = len(ta & tb)
+    union = len(ta | tb)
+    return float(inter) / float(union) if union else 0.0
+
+
+def _sentence_segments_count(s: str) -> int:
+    s = (s or "").strip()
+    if not s:
+        return 0
+    parts = re.split(r"[.!?]+(?:\s+|$)", s)
+    n = len([p for p in parts if p.strip()])
+    return max(1, n)
+
+
+def _sanitize_llm_correction(original: str, corrected: str, max_predict: int) -> str:
+    """Reject hallucinated drift: low overlap with original, extra sentences, or excessive length."""
+    o = (original or "").strip()
+    c = (corrected or "").strip()
+    if not c:
+        return o
+    cap = min(max(len(o) * 2 + 80, 120), 2000, max_predict * 8)
+    if len(c) > cap:
+        c = c[:cap].rsplit(" ", 1)[0].strip()
+    if _sentence_segments_count(c) > _sentence_segments_count(o) + 1:
+        return o
+    if _token_jaccard(o, c) < 0.7:
+        return o
+    return c
 
 
 def _parse_bool_env(name: str, default: str = "0") -> bool:
@@ -200,20 +236,23 @@ def register_extra_routes(app: FastAPI) -> None:
         provider_used = "none"
         skipped_reason: Optional[str] = None
         corrected = text
+        predict_cap = min(req.max_tokens, max(len(text) // 5 + 96, 128))
 
         try:
-            corrected = await _openai_correct_text(text, req.max_tokens)
+            corrected = await _openai_correct_text(text, predict_cap)
             provider_used = "openai"
         except Exception as e_openai:
             skipped_reason = f"openai:{e_openai}"
             try:
-                corrected = await _ollama_correct_text(text, req.max_tokens)
+                corrected = await _ollama_correct_text(text, predict_cap)
                 provider_used = "ollama"
                 skipped_reason = None
             except Exception as e_ollama:
                 corrected = text
                 provider_used = "none"
                 skipped_reason = f"ollama:{e_ollama}"
+
+        corrected = _sanitize_llm_correction(text, corrected, predict_cap)
 
         return {"corrected": corrected, "provider_used": provider_used, "skipped_reason": skipped_reason}
 

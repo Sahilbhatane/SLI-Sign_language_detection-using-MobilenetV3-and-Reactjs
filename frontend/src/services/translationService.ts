@@ -15,18 +15,28 @@ async function loadGloss(): Promise<GlossMap> {
   return glossCache;
 }
 
+/** Normalized lookup keys: lowercase, snake_case, and compact forms. */
+export function glossKeyVariants(text: string): string[] {
+  const raw = String(text || '').trim().toLowerCase();
+  if (!raw) return [];
+  const snake = raw.replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+  const compact = raw.replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
+  return [...new Set([raw, snake, compact].filter(Boolean))];
+}
+
 export async function getLocalGlossTranslation(text: string, targetLang: string): Promise<string | null> {
-  const key = String(text || '').trim().toLowerCase();
-  if (!key) return null;
   const g = await loadGloss();
-  const row = g[key];
-  if (!row) return null;
-  const hit = row[targetLang];
-  return typeof hit === 'string' && hit.trim() ? hit.trim() : null;
+  for (const key of glossKeyVariants(text)) {
+    const row = g[key];
+    if (!row) continue;
+    const hit = row[targetLang];
+    if (typeof hit === 'string' && hit.trim()) return hit.trim();
+  }
+  return null;
 }
 
 /**
- * Translate text. Prefer backend proxy `/translate` (same-origin) to avoid CORS and keep config server-side.
+ * Translate text: local gloss map first, then backend `/translate`, then original on failure.
  */
 export async function translateText(text: string, targetLang: string, sourceLang = 'en'): Promise<string> {
   if (targetLang === 'en') {
@@ -36,25 +46,29 @@ export async function translateText(text: string, targetLang: string, sourceLang
   const local = await getLocalGlossTranslation(text, targetLang);
   if (local) return local;
 
-  const response = await axios.post(
-    '/api/translate',
-    {
-      q: text,
-      source: sourceLang,
-      target: targetLang,
-      format: 'text',
-    },
-    {
-      headers: { 'Content-Type': 'application/json' },
-      timeout: 15_000,
+  try {
+    const response = await axios.post(
+      '/api/translate',
+      {
+        q: text,
+        source: sourceLang,
+        target: targetLang,
+        format: 'text',
+      },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 15_000,
+      }
+    );
+
+    if (response.data && typeof response.data.translatedText === 'string') {
+      return response.data.translatedText;
     }
-  );
 
-  if (response.data && typeof response.data.translatedText === 'string') {
-    return response.data.translatedText;
+    return text;
+  } catch {
+    return text;
   }
-
-  throw new Error('Translation failed: No translated text in response');
 }
 
 export async function batchTranslate(texts: string[], targetLang: string, sourceLang = 'en'): Promise<string[]> {
