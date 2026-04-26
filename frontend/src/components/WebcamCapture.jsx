@@ -2,7 +2,7 @@ import React, { useRef, useState, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
 import axios from 'axios';
 
-const WebcamCapture = ({ onDetection, isActive }) => {
+const WebcamCapture = ({ onDetection, isActive, onUserMedia }) => {
   const [confidenceThreshold, setConfidenceThreshold] = useState(0.6);
   const webcamRef = useRef(null);
   const [capturing, setCapturing] = useState(false);
@@ -12,7 +12,6 @@ const WebcamCapture = ({ onDetection, isActive }) => {
   const intervalRef = useRef(null);
   const fpsTickRef = useRef(0);
   const fpsIntervalRef = useRef(null);
-
   const captureAndPredict = useCallback(async () => {
     if (typeof document !== 'undefined' && document.hidden) {
       return;
@@ -61,7 +60,7 @@ const WebcamCapture = ({ onDetection, isActive }) => {
       console.error('Prediction error:', err);
       setError(err.response?.data?.detail || err.message || 'Failed to detect sign');
     }
-  }, [isActive, onDetection, confidenceThreshold]);
+  }, [isActive, onDetection, confidenceThreshold, onUserMedia]);
 
   useEffect(() => {
     if (!isActive || !capturing) {
@@ -72,7 +71,7 @@ const WebcamCapture = ({ onDetection, isActive }) => {
 
     intervalRef.current = setInterval(() => {
       captureAndPredict();
-    }, 2000);
+    }, 250);
 
     fpsIntervalRef.current = setInterval(() => {
       setCapturesPerSec(fpsTickRef.current);
@@ -108,6 +107,9 @@ const WebcamCapture = ({ onDetection, isActive }) => {
             mirrored={false}
             className="w-full h-full object-cover"
             style={{ transform: 'scaleX(1)' }}
+            onUserMedia={(stream) => {
+              onUserMedia?.(stream);
+            }}
             onUserMediaError={() => {
               setError('Failed to access webcam. Please check permissions.');
             }}

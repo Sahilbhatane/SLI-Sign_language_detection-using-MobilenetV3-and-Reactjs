@@ -9,7 +9,7 @@ import base64
 import logging
 from collections import deque
 from io import BytesIO
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, List
 from contextlib import asynccontextmanager
 
 import numpy as np
@@ -30,6 +30,14 @@ logger = logging.getLogger(__name__)
 
 # Global model instance
 model_instance = None
+
+
+def parse_allowed_origins() -> List[str]:
+    raw = os.getenv("ALLOWED_ORIGINS", "*").strip()
+    if raw == "*":
+        return ["*"]
+    parts = [p.strip() for p in raw.split(",") if p.strip()]
+    return parts if parts else ["*"]
 
 
 class PredictionRequest(BaseModel):
@@ -115,37 +123,42 @@ async def lifespan(app: FastAPI):
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="Sign Language Recognition API",
-    description="FastAPI backend for sign language phrase recognition using ONNX model",
-    version="1.0.0",
+    title="Sign Language Interpreter API",
+    description="FastAPI backend for assistive sign-language recognition (ONNX), optional WebRTC, TTS, and LLM helpers.",
+    version="1.1.0",
     lifespan=lifespan
 )
 
-# Configure CORS
-# TODO: Restrict origins to Vercel URL in production
+# Configure CORS from ALLOWED_ORIGINS (comma-separated) or "*"
+_origins = parse_allowed_origins()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins temporarily
+    allow_origins=_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-logger.info("✓ CORS enabled for all origins (temporary)")
+logger.info("✓ CORS enabled for origins: %s", _origins)
 
 
 @app.get("/", tags=["Root"])
 async def root():
     """Root endpoint"""
     return {
-        "message": "Sign Language Recognition API",
-        "version": "1.0.0",
+        "message": "Sign Language Interpreter API",
+        "version": "1.1.0",
         "endpoints": {
             "health": "/health",
             "predict": "/predict",
             "classes": "/classes",
-            "docs": "/docs"
-        }
+            "tts": "/tts",
+            "translate": "/translate",
+            "llm_correct": "/llm/correct",
+            "fallback": "/fallback",
+            "webrtc_ws": "/ws/webrtc",
+            "docs": "/docs",
+        },
     }
 
 
@@ -320,6 +333,22 @@ async def get_model_info():
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
         )
+
+
+try:
+    from extra_routes import register_extra_routes
+
+    register_extra_routes(app)
+except Exception as e:
+    logger.error("Failed to register extra routes: %s", e)
+    raise
+
+try:
+    from webrtc_server import register_webrtc
+
+    register_webrtc(app, lambda: model_instance)
+except Exception as e:
+    logger.warning("WebRTC registration skipped: %s", e)
 
 
 # Error handlers

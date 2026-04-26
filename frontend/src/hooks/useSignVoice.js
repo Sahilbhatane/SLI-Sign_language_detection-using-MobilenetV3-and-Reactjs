@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { computeVoiceTrigger, speakText, DETECTING_PHRASE } from '../utils/signSpeech';
+import { createTtsService } from '../services/ttsService';
+import { computeVoiceTrigger, DETECTING_PHRASE } from '../utils/signSpeech';
 
 const initialState = {
   streak: 0,
@@ -19,15 +20,21 @@ export function useSignVoice({
   detection,
   translation,
   isTranslating,
+  ttsProvider = 'edge',
 }) {
   const stateRef = useRef({ ...initialState });
   /** Last phrase+text we passed to speechSynthesis (avoid duplicate calls). */
   const utteranceKeyRef = useRef(null);
+  const ttsRef = useRef(null);
+  if (!ttsRef.current) {
+    ttsRef.current = createTtsService();
+  }
 
   useEffect(() => {
     if (!voiceEnabled) {
       stateRef.current = { ...initialState };
       utteranceKeyRef.current = null;
+      ttsRef.current?.reset();
       if (typeof window !== 'undefined' && window.speechSynthesis) {
         window.speechSynthesis.cancel();
       }
@@ -71,7 +78,12 @@ export function useSignVoice({
     if (utteranceKeyRef.current === utteranceKey) return;
     utteranceKeyRef.current = utteranceKey;
 
-    speakText(text, { lang });
+    const provider = ttsProvider === 'server' || ttsProvider === 'elevenlabs' ? ttsProvider : 'edge';
+    const confidence =
+      typeof detection?.confidence === 'number' && !Number.isNaN(detection.confidence)
+        ? detection.confidence
+        : undefined;
+    void ttsRef.current.speak(text, lang, provider, { confidence });
 
     stateRef.current = {
       ...next,
@@ -84,6 +96,7 @@ export function useSignVoice({
     detection,
     translation,
     isTranslating,
+    ttsProvider,
   ]);
 
   useEffect(() => {

@@ -1,0 +1,2 @@
+# Optional WebRTC stack (install separately if needed)
+aiortc>=1.6.0
