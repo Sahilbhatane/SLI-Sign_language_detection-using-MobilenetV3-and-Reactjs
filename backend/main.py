@@ -15,7 +15,6 @@ from contextlib import asynccontextmanager
 import numpy as np
 from PIL import Image
 import onnxruntime as ort
-import tensorflow as tf
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, validator

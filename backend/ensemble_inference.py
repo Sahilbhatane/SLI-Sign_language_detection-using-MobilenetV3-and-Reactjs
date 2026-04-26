@@ -14,9 +14,57 @@ from typing import Optional, Dict, Any, Tuple
 import numpy as np
 from PIL import Image
 import onnxruntime as ort
-import tensorflow as tf
 
 logger = logging.getLogger(__name__)
+
+# ~20% padding on hand axis-aligned bounding box (from 21 keypoints)
+HAND_BBOX_PAD_FRAC = 0.2
+
+
+def hand_bbox_from_landmarks(
+    landmark_list, width: int, height: int, pad_frac: float = HAND_BBOX_PAD_FRAC
+) -> Optional[Tuple[int, int, int, int]]:
+    """
+    Build a tight axis-aligned box around MediaPipe hand landmarks and expand by pad_frac.
+    Returns (x1, y1, x2, y2) in pixel coords with y2/x2 exclusive upper bounds, or None.
+    """
+    if not landmark_list or width <= 0 or height <= 0:
+        return None
+    xs = [float(lm.x) * width for lm in landmark_list]
+    ys = [float(lm.y) * height for lm in landmark_list]
+    x1, x2 = min(xs), max(xs)
+    y1, y2 = min(ys), max(ys)
+    bw, bh = x2 - x1, y2 - y1
+    if bw <= 0 and bh <= 0:
+        return None
+    px = (bw * pad_frac) if bw > 0 else (pad_frac * 10.0)
+    py = (bh * pad_frac) if bh > 0 else (pad_frac * 10.0)
+    x1e = int(np.floor(x1 - px))
+    y1e = int(np.floor(y1 - py))
+    x2e = int(np.ceil(x2 + px))
+    y2e = int(np.ceil(y2 + py))
+    x1c = int(np.clip(x1e, 0, width - 1))
+    y1c = int(np.clip(y1e, 0, height - 1))
+    x2c = int(np.clip(x2e, x1c + 1, width))
+    y2c = int(np.clip(y2e, y1c + 1, height))
+    return (x1c, y1c, x2c, y2c)
+
+
+def wrist_relative_hand_landmarks(landmark_list) -> np.ndarray:
+    """
+    21x3 array: each row is (x, y, z) relative to wrist (index 0), in MediaPipe normalized space.
+    """
+    out = np.zeros((21, 3), dtype=np.float32)
+    if not landmark_list or len(landmark_list) < 21:
+        return out
+    wrist = landmark_list[0]
+    for i, lm in enumerate(landmark_list):
+        if i >= 21:
+            break
+        out[i, 0] = float(lm.x) - float(wrist.x)
+        out[i, 1] = float(lm.y) - float(wrist.y)
+        out[i, 2] = float(lm.z) - float(wrist.z)
+    return out
 
 
 class ONNXSignLanguageModel:
@@ -32,7 +80,7 @@ class ONNXSignLanguageModel:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self, model_path: str = None, labels_path: str = None, enable_mediapipe_crop: bool = False, smoothing_window: int = 5):
+    def __init__(self, model_path: str = None, labels_path: str = None, enable_mediapipe_crop: bool = True, smoothing_window: int = 5):
         # Only initialize once
         if hasattr(self, '_initialized') and self._initialized:
             return
@@ -114,23 +162,29 @@ class ONNXSignLanguageModel:
             self.class_labels = [line.strip() for line in f.readlines()]
         self.num_classes = len(self.class_labels)
 
-        self.enable_mediapipe_crop = enable_mediapipe_crop or os.environ.get("ENABLE_MEDIAPIPE_CROP", "0") == "1"
+        _env = os.environ.get("ENABLE_MEDIAPIPE_CROP", "1").strip()
+        self.enable_mediapipe_crop = bool(enable_mediapipe_crop) and _env != "0"
         self._mp_hands = None
+        self.last_hand_detected: bool = True
+        self.last_wrist_norm_landmarks: Optional[np.ndarray] = None
+        self._last_mp_raw_landmark_vec: Optional[np.ndarray] = None
         need_mediapipe = self.enable_mediapipe_crop or (self.landmark_session is not None)
         if need_mediapipe:
             try:
                 import mediapipe as mp
                 self._mp = mp
+                # Single long-lived instance: real-time hand tracking, one hand (matches training focus)
                 self._mp_hands = mp.solutions.hands.Hands(
-                    static_image_mode=True,
-                    max_num_hands=2,
+                    static_image_mode=False,
+                    max_num_hands=1,
                     min_detection_confidence=0.5,
-                    model_complexity=1,
+                    min_tracking_confidence=0.5,
+                    model_complexity=0,
                 )
                 if self.enable_mediapipe_crop:
-                    logger.info("MediaPipe hand cropping enabled")
+                    logger.info("MediaPipe hand detection + crop enabled (static_image_mode=False, max_num_hands=1)")
                 if self.landmark_session is not None:
-                    logger.info("MediaPipe landmark extraction enabled (landmark model loaded)")
+                    logger.info("MediaPipe landmark vectors enabled (landmark model loaded)")
             except Exception as e:
                 logger.warning(f"Failed to initialize MediaPipe: {e}")
                 self._mp_hands = None
@@ -150,32 +204,19 @@ class ONNXSignLanguageModel:
         self._initialized = True
 
     def _extract_landmarks(self, image: Image.Image) -> Optional[np.ndarray]:
+        """Run MediaPipe on a PIL image and return 63-dim (x,y,z)*21 vector (optional legacy path)."""
         if self._mp_hands is None:
             return None
         try:
-            img_np = np.array(image)
-            H, W = img_np.shape[0], img_np.shape[1]
+            img_np = np.array(image, dtype=np.uint8)
+            if img_np.ndim != 3 or img_np.shape[2] != 3:
+                return None
             results = self._mp_hands.process(img_np)
             if not results.multi_hand_landmarks:
                 return None
-            best = None
-            best_area = -1
-            for hand_lms in results.multi_hand_landmarks:
-                xs = [lm.x * W for lm in hand_lms.landmark]
-                ys = [lm.y * H for lm in hand_lms.landmark]
-                x1, x2 = max(0, int(min(xs))), min(W, int(max(xs)))
-                y1, y2 = max(0, int(min(ys))), min(H, int(max(ys)))
-                area = (x2 - x1) * (y2 - y1)
-                if area > best_area:
-                    best_area = area
-                    best = hand_lms
-            if best is None:
-                return None
-            pts = []
-            for lm in best.landmark:
-                pts.extend([lm.x, lm.y, lm.z])
-            vec = np.array(pts, dtype=np.float32)
-            return vec
+            hand_lms = results.multi_hand_landmarks[0]
+            pts = [v for lm in hand_lms.landmark for v in (lm.x, lm.y, lm.z)]
+            return np.array(pts, dtype=np.float32)
         except Exception:
             return None
 
@@ -216,37 +257,55 @@ class ONNXSignLanguageModel:
             if image.mode != 'RGB':
                 image = image.convert('RGB')
 
-            if self.enable_mediapipe_crop and self._mp_hands is not None:
+            self.last_wrist_norm_landmarks = None
+            self._last_mp_raw_landmark_vec = None
+            ts = target_size or self.target_size or (224, 224)
+            h_out, w_out = int(ts[0]), int(ts[1])
+
+            if not (self.enable_mediapipe_crop and self._mp_hands is not None):
+                self.last_hand_detected = True
+            else:
                 try:
-                    image_np = np.array(image)
-                    results = self._mp_hands.process(image_np)
-                    if results.multi_hand_landmarks:
+                    image_np = np.asarray(image, dtype=np.uint8)
+                    if image_np.ndim != 3 or image_np.shape[2] != 3:
+                        self.last_hand_detected = True
+                    else:
                         H, W, _ = image_np.shape
-                        boxes = []
-                        for hand_lms in results.multi_hand_landmarks:
-                            xs = [lm.x * W for lm in hand_lms.landmark]
-                            ys = [lm.y * H for lm in hand_lms.landmark]
-                            x1, x2 = max(0, int(min(xs))), min(W, int(max(xs)))
-                            y1, y2 = max(0, int(min(ys))), min(H, int(max(ys)))
-                            boxes.append((x1, y1, x2, y2))
-                        if boxes:
-                            x1, y1, x2, y2 = max(boxes, key=lambda b: (b[2]-b[0])*(b[3]-b[1]))
-                            mx = int(0.1 * (x2 - x1 + 1))
-                            my = int(0.1 * (y2 - y1 + 1))
-                            x1 = max(0, x1 - mx)
-                            y1 = max(0, y1 - my)
-                            x2 = min(W, x2 + mx)
-                            y2 = min(H, y2 + my)
-                            image = Image.fromarray(image_np[y1:y2, x1:x2])
+                        results = self._mp_hands.process(image_np)
+                        if not results.multi_hand_landmarks:
+                            self.last_hand_detected = False
+                            img_std = np.full((h_out, w_out, 3), -1.0, dtype=np.float32)
+                            return np.expand_dims(img_std, axis=0)
+                        hand_lms = results.multi_hand_landmarks[0]
+                        lms = list(hand_lms.landmark)
+                        self.last_wrist_norm_landmarks = wrist_relative_hand_landmarks(lms)
+                        self._last_mp_raw_landmark_vec = np.array(
+                            [v for lm in lms for v in (lm.x, lm.y, lm.z)], dtype=np.float32
+                        )
+                        box = hand_bbox_from_landmarks(lms, W, H, HAND_BBOX_PAD_FRAC)
+                        if box is None:
+                            self.last_hand_detected = False
+                            img_std = np.full((h_out, w_out, 3), -1.0, dtype=np.float32)
+                            return np.expand_dims(img_std, axis=0)
+                        x1, y1, x2, y2 = box
+                        crop = image_np[y1:y2, x1:x2]
+                        if crop.size == 0:
+                            self.last_hand_detected = False
+                            img_std = np.full((h_out, w_out, 3), -1.0, dtype=np.float32)
+                            return np.expand_dims(img_std, axis=0)
+                        image = Image.fromarray(crop)
+                        self.last_hand_detected = True
                 except Exception as e:
                     logger.debug(f"MediaPipe crop failed, using full image: {e}")
+                    self.last_hand_detected = True
 
-            ts = target_size or self.target_size or (224, 224)
-            image = image.resize(ts, Image.Resampling.LANCZOS)
+            # target_size is (H, W); PIL resize expects (W, H)
+            image = image.resize((w_out, h_out), Image.Resampling.LANCZOS)
 
             img = np.array(image, dtype=np.float32)
-            # Match ML/train_mobilenet.py: MobileNetV3 preprocessing (image / 127.5 - 1.0)
+            # Match ML/train_mobilenet.py: image / 127.5 - 1.0 -> [-1, 1]
             try:
+                import tensorflow as tf  # optional; numpy path matches training numerics
                 tensor = tf.convert_to_tensor(img)
                 img_std = (tensor / 127.5 - 1.0).numpy()
             except Exception as e:
@@ -272,6 +331,10 @@ class ONNXSignLanguageModel:
 
     def predict(self, image_array: np.ndarray) -> np.ndarray:
         try:
+            if not getattr(self, "last_hand_detected", True):
+                u = np.full(self.num_classes, 1.0 / float(self.num_classes), dtype=np.float32)
+                return u
+
             probs_list = []
 
             outputs = self.session.run(None, {self.input_name: image_array})
@@ -279,17 +342,18 @@ class ONNXSignLanguageModel:
             probs_list.append(np.clip(raw_img, 1e-8, 1.0))
 
             if self.landmark_session is not None:
-                try:
-                    H, W = image_array.shape[1], image_array.shape[2]
-                    approx = image_array[0]
-                    approx = approx - approx.min()
-                    if approx.max() > 0:
-                        approx = approx / approx.max()
-                    approx = (approx * 255.0).astype(np.uint8)
-                    pil = Image.fromarray(approx)
-                    lm_vec = self._extract_landmarks(pil)
-                except Exception:
-                    lm_vec = None
+                lm_vec = self._last_mp_raw_landmark_vec
+                if lm_vec is None:
+                    try:
+                        approx = image_array[0]
+                        approx = approx - approx.min()
+                        if approx.max() > 0:
+                            approx = approx / approx.max()
+                        approx = (approx * 255.0).astype(np.uint8)
+                        pil = Image.fromarray(approx)
+                        lm_vec = self._extract_landmarks(pil)
+                    except Exception:
+                        lm_vec = None
 
                 if lm_vec is not None:
                     inp_shape = self.landmark_input_shape
