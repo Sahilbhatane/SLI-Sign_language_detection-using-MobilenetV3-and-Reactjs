@@ -1,0 +1,765 @@
+---
+pid: 17684
+cwd: |
+  C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI
+last_command: ./run.bat
+last_exit_code: 0
+---
+PS C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI> & C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\venv\Scripts\Activate.ps1
+(venv) PS C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI> ./run.bat
+========================================
+Sign Language Recognition - SLI
+========================================
+
+What would you like to do?
+
+=== SETUP ===
+1. Install dependencies (backend)
+2. Install frontend dependencies
+3. Sync training data from Hugging Face into data/
+=== TRAINING ===
+4. Train model (EfficientNetV2-S - recommended)
+17. Train model (MobileNetV3-Large - legacy)
+18. Download ISL phrase datasets (Mendeley)
+19. Ingest external images into data/ (merge new dataset)
+=== INFERENCE / UI ===
+5. Test model (single image)
+6. Test model (random samples)
+7. Start FastAPI server
+8. Test API endpoints
+9. Start React frontend (dev)
+10. Build frontend (production)
+11. View model info
+12. Open API documentation
+=== OTHER ===
+13. Preprocess dataset (MediaPipe Hands)
+14. Evaluate model (H5/ONNX)
+15. Run end-to-end pipeline test
+0. Exit
+
+Enter your choice (0-19): 1
+
+Installing backend dependencies...
+========================================
+Requirement already satisfied: pip in .\venv\Lib\site-packages (26.0.1)
+Requirement already satisfied: tensorflow>=2.13.0 in .\venv\Lib\site-packages (from -r requirements.txt (line 5)) (2.19.1)
+Requirement already satisfied: numpy>=1.24.0 in .\venv\Lib\site-packages (from -r requirements.txt (line 6)) (2.1.3)
+Requirement already satisfied: matplotlib>=3.7.0 in .\venv\Lib\site-packages (from -r requirements.txt (line 7)) (3.10.8)
+Requirement already satisfied: scikit-learn>=1.3.0 in .\venv\Lib\site-packages (from -r requirements.txt (line 8)) (1.8.0)
+Requirement already satisfied: tf2onnx>=1.16.0 in .\venv\Lib\site-packages (from -r requirements.txt (line 9)) (1.16.1)
+Requirement already satisfied: onnx>=1.14.0 in .\venv\Lib\site-packages (from -r requirements.txt (line 10)) (1.17.0)
+Requirement already satisfied: Pillow>=10.0.0 in .\venv\Lib\site-packages (from -r requirements.txt (line 11)) (12.1.0)
+Requirement already satisfied: mediapipe>=0.10.0 in .\venv\Lib\site-packages (from -r requirements.txt (line 12)) (0.10.32)
+Requirement already satisfied: tqdm>=4.66.0 in .\venv\Lib\site-packages (from -r requirements.txt (line 13)) (4.67.1)
+Requirement already satisfied: scipy>=1.10.0 in .\venv\Lib\site-packages (from -r requirements.txt (line 14)) (1.17.0)
+Collecting opencv-python-headless>=4.8.0 (from -r requirements.txt (line 15))
+  Using cached opencv_python_headless-4.13.0.92-cp37-abi3-win_amd64.whl.metadata (20 kB)
+Requirement already satisfied: pyyaml>=6.0 in .\venv\Lib\site-packages (from -r requirements.txt (line 16)) (6.0.3)
+Requirement already satisfied: datasets>=2.14.0 in .\venv\Lib\site-packages (from -r requirements.txt (line 17)) (4.8.4)
+Requirement already satisfied: huggingface_hub>=0.19.0 in .\venv\Lib\site-packages (from -r requirements.txt (line 18)) (1.12.0)
+Requirement already satisfied: fastapi>=0.104.0 in .\venv\Lib\site-packages (from -r requirements.txt (line 21)) (0.128.0)
+Requirement already satisfied: uvicorn>=0.24.0 in .\venv\Lib\site-packages (from uvicorn[standard]>=0.24.0->-r requirements.txt (line 22)) (0.40.0)
+Requirement already satisfied: pydantic>=2.4.0 in .\venv\Lib\site-packages (from -r requirements.txt (line 23)) (2.12.5)
+Requirement already satisfied: onnxruntime>=1.16.0 in .\venv\Lib\site-packages (from -r requirements.txt (line 24)) (1.23.2)
+Requirement already satisfied: python-multipart>=0.0.6 in .\venv\Lib\site-packages (from -r requirements.txt (line 25)) (0.0.22)
+Requirement already satisfied: requests>=2.31.0 in .\venv\Lib\site-packages (from -r requirements.txt (line 32)) (2.32.5)
+Requirement already satisfied: psutil>=5.9.0 in .\venv\Lib\site-packages (from -r requirements.txt (line 33)) (7.2.2)
+Requirement already satisfied: absl-py>=1.0.0 in .\venv\Lib\site-packages (from tensorflow>=2.13.0->-r requirements.txt (line 5)) (2.3.1)
+Requirement already satisfied: astunparse>=1.6.0 in .\venv\Lib\site-packages (from tensorflow>=2.13.0->-r requirements.txt (line 5)) (1.6.3)
+Requirement already satisfied: flatbuffers>=24.3.25 in .\venv\Lib\site-packages (from tensorflow>=2.13.0->-r requirements.txt (line 5)) (25.12.19)
+Requirement already satisfied: gast!=0.5.0,!=0.5.1,!=0.5.2,>=0.2.1 in .\venv\Lib\site-packages (from tensorflow>=2.13.0->-r requirements.txt (line 5)) (0.7.0)
+Requirement already satisfied: google-pasta>=0.1.1 in .\venv\Lib\site-packages (from tensorflow>=2.13.0->-r requirements.txt (line 5)) (0.2.0)
+Requirement already satisfied: libclang>=13.0.0 in .\venv\Lib\site-packages (from tensorflow>=2.13.0->-r requirements.txt (line 5)) (18.1.1)
+Requirement already satisfied: opt-einsum>=2.3.2 in .\venv\Lib\site-packages (from tensorflow>=2.13.0->-r requirements.txt (line 5)) (3.4.0)
+Requirement already satisfied: packaging in .\venv\Lib\site-packages (from tensorflow>=2.13.0->-r requirements.txt (line 5)) (26.0)
+Requirement already satisfied: protobuf!=4.21.0,!=4.21.1,!=4.21.2,!=4.21.3,!=4.21.4,!=4.21.5,<6.0.0dev,>=3.20.3 in .\venv\Lib\site-packages (from tensorflow>=2.13.0->-r requirements.txt (line 5)) (3.20.3)
+Requirement already satisfied: setuptools in .\venv\Lib\site-packages (from tensorflow>=2.13.0->-r requirements.txt (line 5)) (80.10.2)
+Requirement already satisfied: six>=1.12.0 in .\venv\Lib\site-packages (from tensorflow>=2.13.0->-r requirements.txt (line 5)) (1.17.0)
+Requirement already satisfied: termcolor>=1.1.0 in .\venv\Lib\site-packages (from tensorflow>=2.13.0->-r requirements.txt (line 5)) (3.3.0)
+Requirement already satisfied: typing-extensions>=3.6.6 in .\venv\Lib\site-packages (from tensorflow>=2.13.0->-r requirements.txt (line 5)) (4.15.0)
+Requirement already satisfied: wrapt>=1.11.0 in .\venv\Lib\site-packages (from tensorflow>=2.13.0->-r requirements.txt (line 5)) (2.0.1)
+Requirement already satisfied: grpcio<2.0,>=1.24.3 in .\venv\Lib\site-packages (from tensorflow>=2.13.0->-r requirements.txt (line 5)) (1.76.0)
+Requirement already satisfied: tensorboard~=2.19.0 in .\venv\Lib\site-packages (from tensorflow>=2.13.0->-r requirements.txt (line 5)) (2.19.0)
+Requirement already satisfied: keras>=3.5.0 in .\venv\Lib\site-packages (from tensorflow>=2.13.0->-r requirements.txt (line 5)) (3.13.1)
+Requirement already satisfied: h5py>=3.11.0 in .\venv\Lib\site-packages (from tensorflow>=2.13.0->-r requirements.txt (line 5)) (3.15.1)
+Requirement already satisfied: ml-dtypes<1.0.0,>=0.5.1 in .\venv\Lib\site-packages (from tensorflow>=2.13.0->-r requirements.txt (line 5)) (0.5.4)
+Requirement already satisfied: charset_normalizer<4,>=2 in .\venv\Lib\site-packages (from requests>=2.31.0->-r requirements.txt (line 32)) (3.4.4)
+Requirement already satisfied: idna<4,>=2.5 in .\venv\Lib\site-packages (from requests>=2.31.0->-r requirements.txt (line 32)) (3.11)
+Requirement already satisfied: urllib3<3,>=1.21.1 in .\venv\Lib\site-packages (from requests>=2.31.0->-r requirements.txt (line 32)) (2.6.3)
+Requirement already satisfied: certifi>=2017.4.17 in .\venv\Lib\site-packages (from requests>=2.31.0->-r requirements.txt (line 32)) (2026.1.4)
+Requirement already satisfied: markdown>=2.6.8 in .\venv\Lib\site-packages (from tensorboard~=2.19.0->tensorflow>=2.13.0->-r requirements.txt (line 5)) (3.10.1)
+Requirement already satisfied: tensorboard-data-server<0.8.0,>=0.7.0 in .\venv\Lib\site-packages (from tensorboard~=2.19.0->tensorflow>=2.13.0->-r requirements.txt (line 5)) (0.7.2)
+Requirement already satisfied: werkzeug>=1.0.1 in .\venv\Lib\site-packages (from tensorboard~=2.19.0->tensorflow>=2.13.0->-r requirements.txt (line 5)) (3.1.5)
+Requirement already satisfied: contourpy>=1.0.1 in .\venv\Lib\site-packages (from matplotlib>=3.7.0->-r requirements.txt (line 7)) (1.3.3)
+Requirement already satisfied: cycler>=0.10 in .\venv\Lib\site-packages (from matplotlib>=3.7.0->-r requirements.txt (line 7)) (0.12.1)
+Requirement already satisfied: fonttools>=4.22.0 in .\venv\Lib\site-packages (from matplotlib>=3.7.0->-r requirements.txt (line 7)) (4.61.1)
+Requirement already satisfied: kiwisolver>=1.3.1 in .\venv\Lib\site-packages (from matplotlib>=3.7.0->-r requirements.txt (line 7)) (1.4.9)
+Requirement already satisfied: pyparsing>=3 in .\venv\Lib\site-packages (from matplotlib>=3.7.0->-r requirements.txt (line 7)) (3.3.2)
+Requirement already satisfied: python-dateutil>=2.7 in .\venv\Lib\site-packages (from matplotlib>=3.7.0->-r requirements.txt (line 7)) (2.9.0.post0)
+Requirement already satisfied: joblib>=1.3.0 in .\venv\Lib\site-packages (from scikit-learn>=1.3.0->-r requirements.txt (line 8)) (1.5.3)
+Requirement already satisfied: threadpoolctl>=3.2.0 in .\venv\Lib\site-packages (from scikit-learn>=1.3.0->-r requirements.txt (line 8)) (3.6.0)
+Requirement already satisfied: sounddevice~=0.5 in .\venv\Lib\site-packages (from mediapipe>=0.10.0->-r requirements.txt (line 12)) (0.5.5)
+Requirement already satisfied: opencv-contrib-python in .\venv\Lib\site-packages (from mediapipe>=0.10.0->-r requirements.txt (line 12)) (4.13.0.90)
+Requirement already satisfied: cffi in .\venv\Lib\site-packages (from sounddevice~=0.5->mediapipe>=0.10.0->-r requirements.txt (line 12)) (2.0.0)
+Requirement already satisfied: colorama in .\venv\Lib\site-packages (from tqdm>=4.66.0->-r requirements.txt (line 13)) (0.4.6)
+Requirement already satisfied: filelock in .\venv\Lib\site-packages (from datasets>=2.14.0->-r requirements.txt (line 17)) (3.29.0)
+Requirement already satisfied: pyarrow>=21.0.0 in .\venv\Lib\site-packages (from datasets>=2.14.0->-r requirements.txt (line 17)) (24.0.0)
+Requirement already satisfied: dill<0.4.2,>=0.3.0 in .\venv\Lib\site-packages (from datasets>=2.14.0->-r requirements.txt (line 17)) (0.4.1)
+Requirement already satisfied: pandas in .\venv\Lib\site-packages (from datasets>=2.14.0->-r requirements.txt (line 17)) (3.0.2)
+Requirement already satisfied: httpx<1.0.0 in .\venv\Lib\site-packages (from datasets>=2.14.0->-r requirements.txt (line 17)) (0.28.1)
+Requirement already satisfied: xxhash in .\venv\Lib\site-packages (from datasets>=2.14.0->-r requirements.txt (line 17)) (3.6.0)
+Requirement already satisfied: multiprocess<0.70.20 in .\venv\Lib\site-packages (from datasets>=2.14.0->-r requirements.txt (line 17)) (0.70.19)
+Requirement already satisfied: fsspec<=2026.2.0,>=2023.1.0 in .\venv\Lib\site-packages (from fsspec[http]<=2026.2.0,>=2023.1.0->datasets>=2.14.0->-r requirements.txt (line 17)) (2026.2.0)
+Requirement already satisfied: hf-xet<2.0.0,>=1.4.3 in .\venv\Lib\site-packages (from huggingface_hub>=0.19.0->-r requirements.txt (line 18)) (1.4.3)
+Requirement already satisfied: typer in .\venv\Lib\site-packages (from huggingface_hub>=0.19.0->-r requirements.txt (line 18)) (0.24.2)
+Requirement already satisfied: aiohttp!=4.0.0a0,!=4.0.0a1 in .\venv\Lib\site-packages (from fsspec[http]<=2026.2.0,>=2023.1.0->datasets>=2.14.0->-r requirements.txt (line 17)) (3.13.5)
+Requirement already satisfied: anyio in .\venv\Lib\site-packages (from httpx<1.0.0->datasets>=2.14.0->-r requirements.txt (line 17)) (4.12.1)
+Requirement already satisfied: httpcore==1.* in .\venv\Lib\site-packages (from httpx<1.0.0->datasets>=2.14.0->-r requirements.txt (line 17)) (1.0.9)
+Requirement already satisfied: h11>=0.16 in .\venv\Lib\site-packages (from httpcore==1.*->httpx<1.0.0->datasets>=2.14.0->-r requirements.txt (line 17)) (0.16.0)
+Requirement already satisfied: starlette<0.51.0,>=0.40.0 in .\venv\Lib\site-packages (from fastapi>=0.104.0->-r requirements.txt (line 21)) (0.50.0)
+Requirement already satisfied: annotated-doc>=0.0.2 in .\venv\Lib\site-packages (from fastapi>=0.104.0->-r requirements.txt (line 21)) (0.0.4)
+Requirement already satisfied: click>=7.0 in .\venv\Lib\site-packages (from uvicorn>=0.24.0->uvicorn[standard]>=0.24.0->-r requirements.txt (line 22)) (8.3.1)
+Requirement already satisfied: annotated-types>=0.6.0 in .\venv\Lib\site-packages (from pydantic>=2.4.0->-r requirements.txt (line 23)) (0.7.0)
+Requirement already satisfied: pydantic-core==2.41.5 in .\venv\Lib\site-packages (from pydantic>=2.4.0->-r requirements.txt (line 23)) (2.41.5)
+Requirement already satisfied: typing-inspection>=0.4.2 in .\venv\Lib\site-packages (from pydantic>=2.4.0->-r requirements.txt (line 23)) (0.4.2)
+Requirement already satisfied: coloredlogs in .\venv\Lib\site-packages (from onnxruntime>=1.16.0->-r requirements.txt (line 24)) (15.0.1)
+Requirement already satisfied: sympy in .\venv\Lib\site-packages (from onnxruntime>=1.16.0->-r requirements.txt (line 24)) (1.14.0)
+Requirement already satisfied: aiohappyeyeballs>=2.5.0 in .\venv\Lib\site-packages (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]<=2026.2.0,>=2023.1.0->datasets>=2.14.0->-r requirements.txt (line 17)) (2.6.1)
+Requirement already satisfied: aiosignal>=1.4.0 in .\venv\Lib\site-packages (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]<=2026.2.0,>=2023.1.0->datasets>=2.14.0->-r requirements.txt (line 17)) (1.4.0) 
+Requirement already satisfied: attrs>=17.3.0 in .\venv\Lib\site-packages (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]<=2026.2.0,>=2023.1.0->datasets>=2.14.0->-r requirements.txt (line 17)) (26.1.0)   
+Requirement already satisfied: frozenlist>=1.1.1 in .\venv\Lib\site-packages (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]<=2026.2.0,>=2023.1.0->datasets>=2.14.0->-r requirements.txt (line 17)) (1.8.0)
+Requirement already satisfied: multidict<7.0,>=4.5 in .\venv\Lib\site-packages (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]<=2026.2.0,>=2023.1.0->datasets>=2.14.0->-r requirements.txt (line 17)) (6.7.1)
+Requirement already satisfied: propcache>=0.2.0 in .\venv\Lib\site-packages (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]<=2026.2.0,>=2023.1.0->datasets>=2.14.0->-r requirements.txt (line 17)) (0.4.1) 
+Requirement already satisfied: yarl<2.0,>=1.17.0 in .\venv\Lib\site-packages (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]<=2026.2.0,>=2023.1.0->datasets>=2.14.0->-r requirements.txt (line 17)) (1.23.0)
+Requirement already satisfied: wheel<1.0,>=0.23.0 in .\venv\Lib\site-packages (from astunparse>=1.6.0->tensorflow>=2.13.0->-r requirements.txt (line 5)) (0.46.3)
+Requirement already satisfied: rich in .\venv\Lib\site-packages (from keras>=3.5.0->tensorflow>=2.13.0->-r requirements.txt (line 5)) (14.3.1)
+Requirement already satisfied: namex in .\venv\Lib\site-packages (from keras>=3.5.0->tensorflow>=2.13.0->-r requirements.txt (line 5)) (0.1.0)
+Requirement already satisfied: optree in .\venv\Lib\site-packages (from keras>=3.5.0->tensorflow>=2.13.0->-r requirements.txt (line 5)) (0.18.0)
+Requirement already satisfied: httptools>=0.6.3 in .\venv\Lib\site-packages (from uvicorn[standard]>=0.24.0->-r requirements.txt (line 22)) (0.7.1)
+Requirement already satisfied: python-dotenv>=0.13 in .\venv\Lib\site-packages (from uvicorn[standard]>=0.24.0->-r requirements.txt (line 22)) (1.2.1)
+Requirement already satisfied: watchfiles>=0.13 in .\venv\Lib\site-packages (from uvicorn[standard]>=0.24.0->-r requirements.txt (line 22)) (1.1.1)
+Requirement already satisfied: websockets>=10.4 in .\venv\Lib\site-packages (from uvicorn[standard]>=0.24.0->-r requirements.txt (line 22)) (16.0)
+Requirement already satisfied: markupsafe>=2.1.1 in .\venv\Lib\site-packages (from werkzeug>=1.0.1->tensorboard~=2.19.0->tensorflow>=2.13.0->-r requirements.txt (line 5)) (3.0.3)
+Requirement already satisfied: pycparser in .\venv\Lib\site-packages (from cffi->sounddevice~=0.5->mediapipe>=0.10.0->-r requirements.txt (line 12)) (3.0)
+Requirement already satisfied: humanfriendly>=9.1 in .\venv\Lib\site-packages (from coloredlogs->onnxruntime>=1.16.0->-r requirements.txt (line 24)) (10.0)
+Requirement already satisfied: pyreadline3 in .\venv\Lib\site-packages (from humanfriendly>=9.1->coloredlogs->onnxruntime>=1.16.0->-r requirements.txt (line 24)) (3.5.4)
+Requirement already satisfied: tzdata in .\venv\Lib\site-packages (from pandas->datasets>=2.14.0->-r requirements.txt (line 17)) (2026.2)
+Requirement already satisfied: markdown-it-py>=2.2.0 in .\venv\Lib\site-packages (from rich->keras>=3.5.0->tensorflow>=2.13.0->-r requirements.txt (line 5)) (4.0.0)
+Requirement already satisfied: pygments<3.0.0,>=2.13.0 in .\venv\Lib\site-packages (from rich->keras>=3.5.0->tensorflow>=2.13.0->-r requirements.txt (line 5)) (2.19.2)
+Requirement already satisfied: mdurl~=0.1 in .\venv\Lib\site-packages (from markdown-it-py>=2.2.0->rich->keras>=3.5.0->tensorflow>=2.13.0->-r requirements.txt (line 5)) (0.1.2)
+Requirement already satisfied: mpmath<1.4,>=1.1.0 in .\venv\Lib\site-packages (from sympy->onnxruntime>=1.16.0->-r requirements.txt (line 24)) (1.3.0)
+Requirement already satisfied: shellingham>=1.3.0 in .\venv\Lib\site-packages (from typer->huggingface_hub>=0.19.0->-r requirements.txt (line 18)) (1.5.4)
+Using cached opencv_python_headless-4.13.0.92-cp37-abi3-win_amd64.whl (40.1 MB)
+Installing collected packages: opencv-python-headless
+Successfully installed opencv-python-headless-4.13.0.92
+
+Γ£ô Backend dependencies installed!
+
+Press any key to continue . . .
+What would you like to do?
+
+=== SETUP ===
+1. Install dependencies (backend)
+2. Install frontend dependencies
+3. Sync training data from Hugging Face into data/
+=== TRAINING ===
+4. Train model (EfficientNetV2-S - recommended)
+17. Train model (MobileNetV3-Large - legacy)
+18. Download ISL phrase datasets (Mendeley)
+19. Ingest external images into data/ (merge new dataset)
+=== INFERENCE / UI ===
+5. Test model (single image)
+6. Test model (random samples)
+7. Start FastAPI server
+8. Test API endpoints
+9. Start React frontend (dev)
+10. Build frontend (production)
+11. View model info
+12. Open API documentation
+=== OTHER ===
+13. Preprocess dataset (MediaPipe Hands)
+14. Evaluate model (H5/ONNX)
+15. Run end-to-end pipeline test
+0. Exit
+
+Enter your choice (0-19): 2
+
+Installing frontend dependencies...
+========================================
+
+up to date, audited 225 packages in 11s
+
+50 packages are looking for funding
+  run `npm fund` for details
+
+10 vulnerabilities (5 moderate, 5 high)
+
+To address all issues, run:
+  npm audit fix
+
+Run `npm audit` for details.
+
+Γ£ô Frontend dependencies installed!
+
+Press any key to continue . . .
+What would you like to do?
+
+=== SETUP ===
+1. Install dependencies (backend)
+2. Install frontend dependencies
+3. Sync training data from Hugging Face into data/
+=== TRAINING ===
+4. Train model (EfficientNetV2-S - recommended)
+17. Train model (MobileNetV3-Large - legacy)
+18. Download ISL phrase datasets (Mendeley)
+19. Ingest external images into data/ (merge new dataset)
+=== INFERENCE / UI ===
+5. Test model (single image)
+6. Test model (random samples)
+7. Start FastAPI server
+8. Test API endpoints
+9. Start React frontend (dev)
+10. Build frontend (production)
+11. View model info
+12. Open API documentation
+=== OTHER ===
+13. Preprocess dataset (MediaPipe Hands)
+14. Evaluate model (H5/ONNX)
+15. Run end-to-end pipeline test
+0. Exit
+
+Enter your choice (0-19): 3
+
+Syncing training images from Hugging Face (dataset repo into data/)
+========================================
+Uses huggingface_hub; run option 1 first if dependencies are missing.
+Override repo with: set SLI_HF_DATASET_REPO=namespace/name
+
+Fetching ... files: 3294it [02:43, 20.17it/s]00, ?B/s]
+Download complete: : 0.00B [02:46, ?B/s]              Synced images from SahilBhatane/sli into C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\data
+Download complete: : 0.00B [02:46, ?B/s]
+
+Press any key to continue . . . 
+What would you like to do?
+
+=== SETUP ===
+1. Install dependencies (backend)
+2. Install frontend dependencies
+3. Sync training data from Hugging Face into data/
+=== TRAINING ===
+4. Train model (EfficientNetV2-S - recommended)
+17. Train model (MobileNetV3-Large - legacy)
+18. Download ISL phrase datasets (Mendeley)
+19. Ingest external images into data/ (merge new dataset)
+=== INFERENCE / UI ===
+5. Test model (single image)
+6. Test model (random samples)
+7. Start FastAPI server
+8. Test API endpoints
+9. Start React frontend (dev)
+10. Build frontend (production)
+11. View model info
+12. Open API documentation
+=== OTHER ===
+13. Preprocess dataset (MediaPipe Hands)
+14. Evaluate model (H5/ONNX)
+15. Run end-to-end pipeline test
+0. Exit
+
+Enter your choice (0-19): 4
+
+Training EfficientNetV2-S (ImageNet weights, mixed precision on GPU)
+========================================
+This uses data/ (sync from Hugging Face with option 3, or local / ingested images).
+Estimated time:
+  - CUDA GPU (e.g. RTX 3050+): ~30-90 minutes depending on dataset size
+  - CPU only: several hours
+
+Continue? (y/n): y
+
+WARNING:tensorflow:From C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\venv\Lib\site-packages\tf2onnx\tf_loader.py:68: The name tf.reset_default_graph is deprecated. Please use tf.compat.v1.reset_default_graph instead.
+
+WARNING:tensorflow:From C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\venv\Lib\site-packages\tf2onnx\tf_loader.py:72: The name tf.train.import_meta_graph is deprecated. Please use tf.compat.v1.train.import_meta_graph instead.
+
+======================================================================
+EfficientNetV2-S Training - Sign Language Phrases
+======================================================================
+TensorFlow: 2.19.1
+Precision policy: float32
+Batch size: 32  | Image size: 224x224
+Data: C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\data
+
+[1/5] Loading datasets...
+Found 3294 files belonging to 44 classes.
+Using 2636 files for training.
+Found 3294 files belonging to 44 classes.
+Using 658 files for validation.
+Classes: 44
+Images per class (min/median/max): 55 / 80 / 80
+Total images: 3294  | ~train/val: 2635/659
+class_weight: disabled
+Class labels written to: C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\class_labels.txt  
+
+[2/5] Building model...
+Building EfficientNetV2-S with ImageNet weights...
+EfficientNetV2-S loaded.
+Model: "EfficientNetV2S_SignLanguage"
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)                         ┃ Output Shape                ┃         Param # ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━┩
+│ input (InputLayer)                   │ (None, 224, 224, 3)         │               0 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ efficientnetv2-s (Functional)        │ (None, 7, 7, 1280)          │      20,331,360 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ global_avg_pool                      │ (None, 1280)                │               0 │
+│ (GlobalAveragePooling2D)             │                             │                 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dropout (Dropout)                    │ (None, 1280)                │               0 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ predictions (Dense)                  │ (None, 44)                  │          56,364 │
+└──────────────────────────────────────┴─────────────────────────────┴─────────────────┘
+ Total params: 20,387,724 (77.77 MB)
+ Trainable params: 56,364 (220.17 KB)
+ Non-trainable params: 20,331,360 (77.56 MB)
+
+[3/5] Phase 1: head-only training...
+Epoch 1/40
+ 1/83 ━━━━━━━━━━━━━━━━━━━━ 58:26 43s/step - accuracy: 0.0000e+00 - loss: 3.9434 - top_3_accuracy: 0.0 2/83 ━━━━━━━━━━━━━━━━━━━━ 5:09 4s/step - accuracy: 0.0234 - loss: 3.8784 - top_3_accuracy: 0.0781   
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 3s/step - accuracy: 0.2542 - loss: 3.2140 - top_3_accuracy: 0.4280  
+Epoch 1: val_accuracy improved from None to 0.70365, saving model to C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\best_model.h5
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+
+Epoch 1: finished saving model to C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\best_model.h5
+83/83 ━━━━━━━━━━━━━━━━━━━━ 327s 3s/step - accuracy: 0.4495 - loss: 2.6452 - top_3_accuracy: 0.6681 - val_accuracy: 0.7036 - val_loss: 1.9111 - val_top_3_accuracy: 0.9544 - learning_rate: 0.0010
+Epoch 2/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.8096 - loss: 1.6134 - top_3_accuracy: 0.9624  
+Epoch 2: val_accuracy improved from 0.70365 to 0.91793, saving model to C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\best_model.h5
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+
+Epoch 2: finished saving model to C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\best_model.h5
+83/83 ━━━━━━━━━━━━━━━━━━━━ 245s 3s/step - accuracy: 0.8319 - loss: 1.4978 - top_3_accuracy: 0.9693 - val_accuracy: 0.9179 - val_loss: 1.3708 - val_top_3_accuracy: 1.0000 - learning_rate: 0.0010
+Epoch 3/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.8941 - loss: 1.2602 - top_3_accuracy: 0.9895
+Epoch 3: val_accuracy improved from 0.91793 to 0.94529, saving model to C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\best_model.h5
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+
+Epoch 3: finished saving model to C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\best_model.h5
+83/83 ━━━━━━━━━━━━━━━━━━━━ 244s 3s/step - accuracy: 0.8964 - loss: 1.2328 - top_3_accuracy: 0.9890 - val_accuracy: 0.9453 - val_loss: 1.1750 - val_top_3_accuracy: 1.0000 - learning_rate: 0.0010
+Epoch 4/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 3s/step - accuracy: 0.9314 - loss: 1.1365 - top_3_accuracy: 0.9923 
+Epoch 4: val_accuracy improved from 0.94529 to 0.96960, saving model to C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\best_model.h5
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+
+Epoch 4: finished saving model to C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\best_model.h5
+83/83 ━━━━━━━━━━━━━━━━━━━━ 262s 3s/step - accuracy: 0.9344 - loss: 1.1158 - top_3_accuracy: 0.9947 - val_accuracy: 0.9696 - val_loss: 1.0415 - val_top_3_accuracy: 1.0000 - learning_rate: 0.0010
+Epoch 5/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.9417 - loss: 1.0611 - top_3_accuracy: 0.9934  
+Epoch 5: val_accuracy improved from 0.96960 to 0.98176, saving model to C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\best_model.h5
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+
+Epoch 5: finished saving model to C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\best_model.h5
+83/83 ━━━━━━━━━━━━━━━━━━━━ 238s 3s/step - accuracy: 0.9461 - loss: 1.0518 - top_3_accuracy: 0.9943 - val_accuracy: 0.9818 - val_loss: 0.9731 - val_top_3_accuracy: 1.0000 - learning_rate: 0.0010
+Epoch 6/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.9613 - loss: 1.0185 - top_3_accuracy: 0.9953  
+Epoch 6: val_accuracy improved from 0.98176 to 0.98480, saving model to C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\best_model.h5
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+
+Epoch 6: finished saving model to C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\best_model.h5
+83/83 ━━━━━━━━━━━━━━━━━━━━ 245s 3s/step - accuracy: 0.9609 - loss: 1.0050 - top_3_accuracy: 0.9970 - val_accuracy: 0.9848 - val_loss: 0.9111 - val_top_3_accuracy: 1.0000 - learning_rate: 0.0010
+Epoch 7/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.9666 - loss: 0.9821 - top_3_accuracy: 0.9974  
+Epoch 7: val_accuracy improved from 0.98480 to 0.99088, saving model to C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\best_model.h5
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+
+Epoch 7: finished saving model to C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\best_model.h5
+83/83 ━━━━━━━━━━━━━━━━━━━━ 237s 3s/step - accuracy: 0.9666 - loss: 0.9812 - top_3_accuracy: 0.9966 - val_accuracy: 0.9909 - val_loss: 0.8988 - val_top_3_accuracy: 1.0000 - learning_rate: 0.0010
+Epoch 8/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.9637 - loss: 0.9581 - top_3_accuracy: 0.9974  
+Epoch 8: val_accuracy did not improve from 0.99088
+83/83 ━━━━━━━━━━━━━━━━━━━━ 234s 3s/step - accuracy: 0.9662 - loss: 0.9583 - top_3_accuracy: 0.9981 - val_accuracy: 0.9878 - val_loss: 0.8834 - val_top_3_accuracy: 1.0000 - learning_rate: 0.0010
+Epoch 9/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.9706 - loss: 0.9488 - top_3_accuracy: 0.9985  
+Epoch 9: val_accuracy did not improve from 0.99088
+83/83 ━━━━━━━━━━━━━━━━━━━━ 236s 3s/step - accuracy: 0.9712 - loss: 0.9466 - top_3_accuracy: 0.9992 - val_accuracy: 0.9878 - val_loss: 0.8781 - val_top_3_accuracy: 1.0000 - learning_rate: 0.0010
+Epoch 10/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.9719 - loss: 0.9349 - top_3_accuracy: 0.9971  
+Epoch 10: val_accuracy improved from 0.99088 to 0.99392, saving model to C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\best_model.h5
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+
+Epoch 10: finished saving model to C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\best_model.h5
+83/83 ━━━━━━━━━━━━━━━━━━━━ 234s 3s/step - accuracy: 0.9753 - loss: 0.9332 - top_3_accuracy: 0.9977 - val_accuracy: 0.9939 - val_loss: 0.8535 - val_top_3_accuracy: 1.0000 - learning_rate: 0.0010
+Epoch 11/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.9745 - loss: 0.9247 - top_3_accuracy: 1.0000  
+Epoch 11: val_accuracy did not improve from 0.99392
+83/83 ━━━━━━━━━━━━━━━━━━━━ 235s 3s/step - accuracy: 0.9731 - loss: 0.9251 - top_3_accuracy: 1.0000 - val_accuracy: 0.9939 - val_loss: 0.8371 - val_top_3_accuracy: 1.0000 - learning_rate: 0.0010
+Epoch 12/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.9785 - loss: 0.9215 - top_3_accuracy: 0.9992  
+Epoch 12: val_accuracy improved from 0.99392 to 0.99696, saving model to C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\best_model.h5
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+
+Epoch 12: finished saving model to C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\best_model.h5
+83/83 ━━━━━━━━━━━━━━━━━━━━ 243s 3s/step - accuracy: 0.9795 - loss: 0.9196 - top_3_accuracy: 0.9985 - val_accuracy: 0.9970 - val_loss: 0.8384 - val_top_3_accuracy: 1.0000 - learning_rate: 0.0010
+Epoch 13/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.9788 - loss: 0.8975 - top_3_accuracy: 0.9995  
+Epoch 13: val_accuracy did not improve from 0.99696
+83/83 ━━━━━━━━━━━━━━━━━━━━ 234s 3s/step - accuracy: 0.9803 - loss: 0.8998 - top_3_accuracy: 0.9996 - val_accuracy: 0.9970 - val_loss: 0.8312 - val_top_3_accuracy: 1.0000 - learning_rate: 0.0010
+Epoch 14/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.9768 - loss: 0.9081 - top_3_accuracy: 0.9981  
+Epoch 14: val_accuracy improved from 0.99696 to 1.00000, saving model to C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\best_model.h5
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+
+Epoch 14: finished saving model to C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\best_model.h5
+83/83 ━━━━━━━━━━━━━━━━━━━━ 239s 3s/step - accuracy: 0.9799 - loss: 0.9061 - top_3_accuracy: 0.9985 - val_accuracy: 1.0000 - val_loss: 0.8150 - val_top_3_accuracy: 1.0000 - learning_rate: 0.0010
+Epoch 15/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.9863 - loss: 0.8924 - top_3_accuracy: 1.0000  
+Epoch 15: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 235s 3s/step - accuracy: 0.9844 - loss: 0.8902 - top_3_accuracy: 1.0000 - val_accuracy: 0.9970 - val_loss: 0.8198 - val_top_3_accuracy: 1.0000 - learning_rate: 0.0010
+Epoch 16/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.9868 - loss: 0.8860 - top_3_accuracy: 0.9997  
+Epoch 16: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 248s 3s/step - accuracy: 0.9875 - loss: 0.8840 - top_3_accuracy: 0.9996 - val_accuracy: 0.9939 - val_loss: 0.8378 - val_top_3_accuracy: 1.0000 - learning_rate: 0.0010
+Epoch 17/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 244s/step - accuracy: 0.9841 - loss: 0.8827 - top_3_accuracy: 0.9997     
+Epoch 17: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 20055s 245s/step - accuracy: 0.9848 - loss: 0.8830 - top_3_accuracy: 0.9992 - val_accuracy: 0.9970 - val_loss: 0.8269 - val_top_3_accuracy: 1.0000 - learning_rate: 0.0010
+Epoch 18/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.9776 - loss: 0.8919 - top_3_accuracy: 0.9998  
+Epoch 18: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 243s 3s/step - accuracy: 0.9833 - loss: 0.8843 - top_3_accuracy: 0.9996 - val_accuracy: 0.9970 - val_loss: 0.8238 - val_top_3_accuracy: 1.0000 - learning_rate: 0.0010
+Epoch 19/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.9871 - loss: 0.8841 - top_3_accuracy: 1.0000  
+Epoch 19: val_accuracy did not improve from 1.00000
+
+Epoch 19: ReduceLROnPlateau reducing learning rate to 0.0005000000237487257.
+83/83 ━━━━━━━━━━━━━━━━━━━━ 242s 3s/step - accuracy: 0.9886 - loss: 0.8791 - top_3_accuracy: 1.0000 - val_accuracy: 0.9970 - val_loss: 0.8293 - val_top_3_accuracy: 1.0000 - learning_rate: 0.0010
+Epoch 20/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.9864 - loss: 0.8671 - top_3_accuracy: 1.0000  
+Epoch 20: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 234s 3s/step - accuracy: 0.9879 - loss: 0.8639 - top_3_accuracy: 1.0000 - val_accuracy: 0.9970 - val_loss: 0.8260 - val_top_3_accuracy: 1.0000 - learning_rate: 5.0000e-04
+Epoch 21/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.9914 - loss: 0.8600 - top_3_accuracy: 0.9994  
+Epoch 21: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 233s 3s/step - accuracy: 0.9898 - loss: 0.8660 - top_3_accuracy: 0.9989 - val_accuracy: 0.9970 - val_loss: 0.8189 - val_top_3_accuracy: 1.0000 - learning_rate: 5.0000e-04
+Epoch 22/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.9859 - loss: 0.8750 - top_3_accuracy: 0.9984  
+Epoch 22: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 231s 3s/step - accuracy: 0.9852 - loss: 0.8712 - top_3_accuracy: 0.9992 - val_accuracy: 0.9970 - val_loss: 0.8213 - val_top_3_accuracy: 1.0000 - learning_rate: 5.0000e-04
+Epoch 23/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.9868 - loss: 0.8662 - top_3_accuracy: 0.9999  
+Epoch 23: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 232s 3s/step - accuracy: 0.9894 - loss: 0.8628 - top_3_accuracy: 0.9996 - val_accuracy: 0.9970 - val_loss: 0.8001 - val_top_3_accuracy: 1.0000 - learning_rate: 5.0000e-04
+Epoch 24/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.9912 - loss: 0.8603 - top_3_accuracy: 1.0000  
+Epoch 24: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 237s 3s/step - accuracy: 0.9898 - loss: 0.8609 - top_3_accuracy: 1.0000 - val_accuracy: 0.9970 - val_loss: 0.8103 - val_top_3_accuracy: 1.0000 - learning_rate: 5.0000e-04
+Epoch 25/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.9914 - loss: 0.8559 - top_3_accuracy: 1.0000  
+Epoch 25: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 237s 3s/step - accuracy: 0.9871 - loss: 0.8589 - top_3_accuracy: 0.9996 - val_accuracy: 1.0000 - val_loss: 0.7976 - val_top_3_accuracy: 1.0000 - learning_rate: 5.0000e-04
+Epoch 26/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 3s/step - accuracy: 0.9917 - loss: 0.8596 - top_3_accuracy: 0.9994  
+Epoch 26: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 255s 3s/step - accuracy: 0.9920 - loss: 0.8586 - top_3_accuracy: 0.9996 - val_accuracy: 1.0000 - val_loss: 0.8046 - val_top_3_accuracy: 1.0000 - learning_rate: 5.0000e-04
+Epoch 27/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.9894 - loss: 0.8550 - top_3_accuracy: 0.9994  
+Epoch 27: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 240s 3s/step - accuracy: 0.9898 - loss: 0.8572 - top_3_accuracy: 0.9992 - val_accuracy: 0.9970 - val_loss: 0.8041 - val_top_3_accuracy: 1.0000 - learning_rate: 5.0000e-04
+Epoch 28/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.9904 - loss: 0.8621 - top_3_accuracy: 1.0000  
+Epoch 28: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 240s 3s/step - accuracy: 0.9909 - loss: 0.8553 - top_3_accuracy: 1.0000 - val_accuracy: 1.0000 - val_loss: 0.7878 - val_top_3_accuracy: 1.0000 - learning_rate: 5.0000e-04
+Epoch 29/40
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 2s/step - accuracy: 0.9910 - loss: 0.8551 - top_3_accuracy: 1.0000  
+Epoch 29: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 245s 3s/step - accuracy: 0.9879 - loss: 0.8589 - top_3_accuracy: 1.0000 - val_accuracy: 1.0000 - val_loss: 0.7952 - val_top_3_accuracy: 1.0000 - learning_rate: 5.0000e-04
+Epoch 29: early stopping
+Restoring model weights from the end of the best epoch: 14.
+
+[4/5] Phase 2: fine-tuning (top ~30% of base)...
+Epoch 1/25
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 4s/step - accuracy: 0.9295 - loss: 1.3373 - top_3_accuracy: 0.9913      
+Epoch 1: val_accuracy improved from None to 0.99392, saving model to C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\best_model.h5
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+
+Epoch 1: finished saving model to C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\best_model.h5
+83/83 ━━━━━━━━━━━━━━━━━━━━ 463s 5s/step - accuracy: 0.9450 - loss: 1.2399 - top_3_accuracy: 0.9913 - val_accuracy: 0.9939 - val_loss: 0.9280 - val_top_3_accuracy: 1.0000 - learning_rate: 1.0000e-05
+Epoch 2/25
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 4s/step - accuracy: 0.9736 - loss: 1.0330 - top_3_accuracy: 0.9992  
+Epoch 2: val_accuracy improved from 0.99392 to 1.00000, saving model to C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\best_model.h5
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+
+Epoch 2: finished saving model to C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\best_model.h5
+83/83 ━━━━━━━━━━━━━━━━━━━━ 389s 5s/step - accuracy: 0.9746 - loss: 1.0067 - top_3_accuracy: 0.9989 - val_accuracy: 1.0000 - val_loss: 0.8374 - val_top_3_accuracy: 1.0000 - learning_rate: 1.0000e-05
+Epoch 3/25
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 4s/step - accuracy: 0.9856 - loss: 0.9343 - top_3_accuracy: 0.9973  
+Epoch 3: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 376s 5s/step - accuracy: 0.9856 - loss: 0.9188 - top_3_accuracy: 0.9977 - val_accuracy: 1.0000 - val_loss: 0.7999 - val_top_3_accuracy: 1.0000 - learning_rate: 1.0000e-05
+Epoch 4/25
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 4s/step - accuracy: 0.9891 - loss: 0.8755 - top_3_accuracy: 0.9997  
+Epoch 4: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 365s 4s/step - accuracy: 0.9913 - loss: 0.8710 - top_3_accuracy: 0.9992 - val_accuracy: 1.0000 - val_loss: 0.7901 - val_top_3_accuracy: 1.0000 - learning_rate: 1.0000e-05
+Epoch 5/25
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 4s/step - accuracy: 0.9892 - loss: 0.8637 - top_3_accuracy: 0.9993  
+Epoch 5: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 363s 4s/step - accuracy: 0.9894 - loss: 0.8561 - top_3_accuracy: 0.9992 - val_accuracy: 1.0000 - val_loss: 0.7806 - val_top_3_accuracy: 1.0000 - learning_rate: 1.0000e-05
+Epoch 6/25
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 4s/step - accuracy: 0.9925 - loss: 0.8402 - top_3_accuracy: 0.9999  
+Epoch 6: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 360s 4s/step - accuracy: 0.9932 - loss: 0.8429 - top_3_accuracy: 0.9996 - val_accuracy: 1.0000 - val_loss: 0.7720 - val_top_3_accuracy: 1.0000 - learning_rate: 1.0000e-05
+Epoch 7/25
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 4s/step - accuracy: 0.9962 - loss: 0.8351 - top_3_accuracy: 0.9986  
+Epoch 7: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 359s 4s/step - accuracy: 0.9936 - loss: 0.8338 - top_3_accuracy: 0.9989 - val_accuracy: 1.0000 - val_loss: 0.7683 - val_top_3_accuracy: 1.0000 - learning_rate: 1.0000e-05
+Epoch 8/25
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 4s/step - accuracy: 0.9936 - loss: 0.8318 - top_3_accuracy: 1.0000  
+Epoch 8: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 355s 4s/step - accuracy: 0.9951 - loss: 0.8281 - top_3_accuracy: 1.0000 - val_accuracy: 1.0000 - val_loss: 0.7640 - val_top_3_accuracy: 1.0000 - learning_rate: 1.0000e-05
+Epoch 9/25
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 4s/step - accuracy: 0.9978 - loss: 0.8195 - top_3_accuracy: 1.0000  
+Epoch 9: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 354s 4s/step - accuracy: 0.9977 - loss: 0.8182 - top_3_accuracy: 1.0000 - val_accuracy: 1.0000 - val_loss: 0.7609 - val_top_3_accuracy: 1.0000 - learning_rate: 1.0000e-05
+Epoch 10/25
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 4s/step - accuracy: 0.9945 - loss: 0.8159 - top_3_accuracy: 1.0000  
+Epoch 10: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 360s 4s/step - accuracy: 0.9962 - loss: 0.8125 - top_3_accuracy: 1.0000 - val_accuracy: 1.0000 - val_loss: 0.7590 - val_top_3_accuracy: 1.0000 - learning_rate: 1.0000e-05
+Epoch 11/25
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 4s/step - accuracy: 0.9983 - loss: 0.8110 - top_3_accuracy: 1.0000  
+Epoch 11: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 360s 4s/step - accuracy: 0.9973 - loss: 0.8116 - top_3_accuracy: 1.0000 - val_accuracy: 1.0000 - val_loss: 0.7553 - val_top_3_accuracy: 1.0000 - learning_rate: 1.0000e-05
+Epoch 12/25
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 4s/step - accuracy: 0.9955 - loss: 0.8059 - top_3_accuracy: 1.0000  
+Epoch 12: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 357s 4s/step - accuracy: 0.9973 - loss: 0.8013 - top_3_accuracy: 1.0000 - val_accuracy: 1.0000 - val_loss: 0.7546 - val_top_3_accuracy: 1.0000 - learning_rate: 1.0000e-05
+Epoch 13/25
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 4s/step - accuracy: 0.9983 - loss: 0.8019 - top_3_accuracy: 1.0000  
+Epoch 13: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 360s 4s/step - accuracy: 0.9985 - loss: 0.8008 - top_3_accuracy: 1.0000 - val_accuracy: 1.0000 - val_loss: 0.7512 - val_top_3_accuracy: 1.0000 - learning_rate: 1.0000e-05
+Epoch 14/25
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 4s/step - accuracy: 0.9991 - loss: 0.7982 - top_3_accuracy: 1.0000  
+Epoch 14: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 363s 4s/step - accuracy: 0.9992 - loss: 0.7974 - top_3_accuracy: 1.0000 - val_accuracy: 1.0000 - val_loss: 0.7549 - val_top_3_accuracy: 1.0000 - learning_rate: 1.0000e-05
+Epoch 15/25
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 12s/step - accuracy: 0.9962 - loss: 0.7963 - top_3_accuracy: 1.0000   
+Epoch 15: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 1016s 12s/step - accuracy: 0.9962 - loss: 0.7952 - top_3_accuracy: 1.0000 - val_accuracy: 1.0000 - val_loss: 0.7546 - val_top_3_accuracy: 1.0000 - learning_rate: 1.0000e-05
+Epoch 16/25
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 4s/step - accuracy: 0.9977 - loss: 0.7866 - top_3_accuracy: 1.0000  
+Epoch 16: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 387s 5s/step - accuracy: 0.9977 - loss: 0.7852 - top_3_accuracy: 1.0000 - val_accuracy: 1.0000 - val_loss: 0.7507 - val_top_3_accuracy: 1.0000 - learning_rate: 1.0000e-05
+Epoch 17/25
+83/83 ━━━━━━━━━━━━━━━━━━━━ 0s 4s/step - accuracy: 0.9972 - loss: 0.7911 - top_3_accuracy: 1.0000  
+Epoch 17: val_accuracy did not improve from 1.00000
+83/83 ━━━━━━━━━━━━━━━━━━━━ 361s 4s/step - accuracy: 0.9992 - loss: 0.7868 - top_3_accuracy: 1.0000 - val_accuracy: 1.0000 - val_loss: 0.7487 - val_top_3_accuracy: 1.0000 - learning_rate: 1.0000e-05
+Epoch 17: early stopping
+Restoring model weights from the end of the best epoch: 2.
+
+[5/5] Evaluation + export...
+val_accuracy: 100.00%  top-3: 100.00%  loss: 0.8374
+Training history plot: C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\training_history.png
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1777199244.940836    5164 devices.cc:76] Number of eligible GPUs (core count >= 8, compute capability >= 0.0): 0 (Note: TensorFlow was not compiled with CUDA or ROCm support)
+I0000 00:00:1777199244.946356    5164 single_machine.cc:374] Starting new session
+I0000 00:00:1777199258.635392    5164 devices.cc:76] Number of eligible GPUs (core count >= 8, compute capability >= 0.0): 0 (Note: TensorFlow was not compiled with CUDA or ROCm support)
+I0000 00:00:1777199258.638022    5164 single_machine.cc:374] Starting new session
+ERROR:tf2onnx.tfonnx:rewriter <function rewrite_constant_fold at 0x000002D774567420>: exception `np.cast` was removed in the NumPy 2.0 release. Use `np.asarray(arr, dtype=dtype)` instead.
+ONNX export: C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI\backend\model_v2.onnx
+
+Training completed. Outputs in backend/: model_v2.onnx, best_model.h5, class_labels.txt
+
+Press any key to continue . . .
+What would you like to do?
+
+=== SETUP ===
+1. Install dependencies (backend)
+2. Install frontend dependencies
+3. Sync training data from Hugging Face into data/
+=== TRAINING ===
+4. Train model (EfficientNetV2-S - recommended)
+17. Train model (MobileNetV3-Large - legacy)
+18. Download ISL phrase datasets (Mendeley)
+19. Ingest external images into data/ (merge new dataset)
+=== INFERENCE / UI ===
+5. Test model (single image)
+6. Test model (random samples)
+7. Start FastAPI server
+8. Test API endpoints
+9. Start React frontend (dev)
+10. Build frontend (production)
+11. View model info
+12. Open API documentation
+=== OTHER ===
+13. Preprocess dataset (MediaPipe Hands)
+14. Evaluate model (H5/ONNX)
+15. Run end-to-end pipeline test
+0. Exit
+
+Enter your choice (0-19): 5
+
+Test on specific image
+========================================
+Enter image path (e.g., ./data/stop/1.png): data\book\9.png
+
+======================================================================
+SIGN LANGUAGE RECOGNITION - MODEL INFERENCE
+======================================================================
+✓ Model loaded: ./backend/model_v2.onnx
+✓ Classes loaded: 44 classes
+
+======================================================================
+Analyzing: data\book\9.png
+======================================================================
+2026-04-26 16:09:51.294877: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-04-26 16:09:57.224766: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-04-26 16:10:18.315042: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+
+Top 5 Predictions:
+----------------------------------------------------------------------
+1. book                       92.69% ██████████████████████████████████████████████░░░░
+2. pass                        0.56% ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+3. home                        0.51% ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+4. join                        0.50% ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+5. understand                  0.46% ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+----------------------------------------------------------------------
+
+✓ Predicted Sign: BOOK
+  Confidence: 92.69%
+======================================================================
+
+
+Press any key to continue . . . 
+What would you like to do?
+
+=== SETUP ===
+1. Install dependencies (backend)
+2. Install frontend dependencies
+3. Sync training data from Hugging Face into data/
+=== TRAINING ===
+4. Train model (EfficientNetV2-S - recommended)
+17. Train model (MobileNetV3-Large - legacy)
+18. Download ISL phrase datasets (Mendeley)
+19. Ingest external images into data/ (merge new dataset)
+=== INFERENCE / UI ===
+5. Test model (single image)
+6. Test model (random samples)
+7. Start FastAPI server
+8. Test API endpoints
+9. Start React frontend (dev)
+10. Build frontend (production)
+11. View model info
+12. Open API documentation
+=== OTHER ===
+13. Preprocess dataset (MediaPipe Hands)
+14. Evaluate model (H5/ONNX)
+15. Run end-to-end pipeline test
+0. Exit
+
+Enter your choice (0-19): 6
+
+Testing on random samples...
+========================================
+======================================================================
+SIGN LANGUAGE RECOGNITION - MODEL INFERENCE
+======================================================================
+✓ Model loaded: ./backend/model_v2.onnx
+✓ Classes loaded: 44 classes
+
+No image provided. Running sample tests...
+
+======================================================================
+TESTING MODEL ON SAMPLE IMAGES
+======================================================================
+
+2026-04-26 16:10:30.030815: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-04-26 16:10:31.067149: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-04-26 16:10:34.332591: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+✓ True: again                | Predicted: again                | Conf:  93.0%
+✓ True: again                | Predicted: again                | Conf:  87.8%
+✓ True: agree                | Predicted: agree                | Conf:  83.1%
+✓ True: agree                | Predicted: agree                | Conf:  85.9%
+✓ True: answer               | Predicted: answer               | Conf:  92.1%
+✓ True: answer               | Predicted: answer               | Conf:  55.1%
+✓ True: attendance           | Predicted: attendance           | Conf:  95.0%
+✓ True: attendance           | Predicted: attendance           | Conf:  94.9%
+
+======================================================================
+Sample Accuracy: 8/8 (100.0%)
+======================================================================
+
+
+Usage for single image prediction:
+  python inference.py <path_to_image>
+
+Example:
+  python inference.py ./data/stop/1.png
+
+Press any key to continue . . . 
+What would you like to do?
+
+=== SETUP ===
+1. Install dependencies (backend)
+2. Install frontend dependencies
+3. Sync training data from Hugging Face into data/
+=== TRAINING ===
+4. Train model (EfficientNetV2-S - recommended)
+17. Train model (MobileNetV3-Large - legacy)
+18. Download ISL phrase datasets (Mendeley)
+19. Ingest external images into data/ (merge new dataset)
+=== INFERENCE / UI ===
+5. Test model (single image)
+6. Test model (random samples)
+7. Start FastAPI server
+8. Test API endpoints
+9. Start React frontend (dev)
+10. Build frontend (production)
+11. View model info
+12. Open API documentation
+=== OTHER ===
+13. Preprocess dataset (MediaPipe Hands)
+14. Evaluate model (H5/ONNX)
+15. Run end-to-end pipeline test
+0. Exit
+
+Enter your choice (0-19): 11
+
+Model Information
+========================================
+Testing ONNX Model Utilities
+
+Error: Model file not found: ./backend/model.onnx
+
+Please train the model first: python train.py
+
+Press any key to continue . . . 
+What would you like to do?
+
+=== SETUP ===
+1. Install dependencies (backend)
+2. Install frontend dependencies
+3. Sync training data from Hugging Face into data/
+=== TRAINING ===
+4. Train model (EfficientNetV2-S - recommended)
+17. Train model (MobileNetV3-Large - legacy)
+18. Download ISL phrase datasets (Mendeley)
+19. Ingest external images into data/ (merge new dataset)
+=== INFERENCE / UI ===
+5. Test model (single image)
+6. Test model (random samples)
+7. Start FastAPI server
+8. Test API endpoints
+9. Start React frontend (dev)
+10. Build frontend (production)
+11. View model info
+12. Open API documentation
+=== OTHER ===
+13. Preprocess dataset (MediaPipe Hands)
+14. Evaluate model (H5/ONNX)
+15. Run end-to-end pipeline test
+0. Exit
+
+Enter your choice (0-19): 0 
+
+Thank you for using Sign Language Recognition!
+
+(venv) PS C:\Users\sahil\OneDrive\Desktop\CODE\Projects\SLI>
