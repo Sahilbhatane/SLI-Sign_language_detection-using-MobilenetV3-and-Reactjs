@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Header = () => {
+const Header = ({ onOpenSettings }) => {
   return (
     <header className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
       <div className="flex items-center justify-between px-6 py-4">
@@ -13,6 +13,15 @@ const Header = () => {
         </div>
 
         <div className="flex items-center space-x-4">
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-sm hover:bg-white/15 border border-white/20"
+            title="Settings"
+          >
+            <span aria-hidden>⚙️</span>
+            <span>Settings</span>
+          </button>
           <div className="flex items-center space-x-2">
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
             <span className="text-sm">Live</span>

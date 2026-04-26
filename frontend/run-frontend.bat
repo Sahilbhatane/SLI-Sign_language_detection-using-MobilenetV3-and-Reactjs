@@ -1,4 +1,5 @@
 @echo off
+REM Frontend helper. Full project: ..\docs\ONBOARDING_AND_IMPLEMENTATION_GUIDE.md
 echo ========================================
 echo   Sign Language Interpreter - Frontend
 echo ========================================
@@ -15,16 +16,18 @@ echo 2. Start development server (npm run dev)
 echo 3. Build for production (npm run build)
 echo 4. Preview production build (npm run preview)
 echo 5. Open in browser
+echo 6. Run unit tests (npm test)
 echo 0. Exit
 echo.
 
-set /p choice="Enter your choice (0-5): "
+set /p choice="Enter your choice (0-6): "
 
 if "%choice%"=="1" goto install
 if "%choice%"=="2" goto dev
 if "%choice%"=="3" goto build
 if "%choice%"=="4" goto preview
 if "%choice%"=="5" goto browser
+if "%choice%"=="6" goto test
 if "%choice%"=="0" goto end
 
 echo Invalid choice. Please try again.
@@ -72,6 +75,14 @@ goto menu
 echo.
 echo Opening http://localhost:3000 in browser...
 start http://localhost:3000
+goto menu
+
+:test
+echo.
+echo Running Vitest (npm test^)...
+call npm test
+echo.
+pause
 goto menu
 
 :end

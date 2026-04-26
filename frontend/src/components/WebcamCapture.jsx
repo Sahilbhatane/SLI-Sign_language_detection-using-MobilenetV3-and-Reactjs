@@ -2,7 +2,14 @@ import React, { useRef, useState, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
 import axios from 'axios';
 
-const WebcamCapture = ({ onDetection, isActive }) => {
+const WebcamCapture = ({
+  onDetection,
+  isActive,
+  onUserMedia,
+  useRestPolling = true,
+  onCapturingChange,
+  onFpsSample,
+}) => {
   const [confidenceThreshold, setConfidenceThreshold] = useState(0.6);
   const webcamRef = useRef(null);
   const [capturing, setCapturing] = useState(false);
@@ -12,7 +19,6 @@ const WebcamCapture = ({ onDetection, isActive }) => {
   const intervalRef = useRef(null);
   const fpsTickRef = useRef(0);
   const fpsIntervalRef = useRef(null);
-
   const captureAndPredict = useCallback(async () => {
     if (typeof document !== 'undefined' && document.hidden) {
       return;
@@ -64,7 +70,11 @@ const WebcamCapture = ({ onDetection, isActive }) => {
   }, [isActive, onDetection, confidenceThreshold]);
 
   useEffect(() => {
-    if (!isActive || !capturing) {
+    onCapturingChange?.(capturing);
+  }, [capturing, onCapturingChange]);
+
+  useEffect(() => {
+    if (!isActive || !capturing || !useRestPolling) {
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (fpsIntervalRef.current) clearInterval(fpsIntervalRef.current);
       return undefined;
@@ -72,10 +82,12 @@ const WebcamCapture = ({ onDetection, isActive }) => {
 
     intervalRef.current = setInterval(() => {
       captureAndPredict();
-    }, 2000);
+    }, 250);
 
     fpsIntervalRef.current = setInterval(() => {
-      setCapturesPerSec(fpsTickRef.current);
+      const n = fpsTickRef.current;
+      setCapturesPerSec(n);
+      onFpsSample?.(n);
       fpsTickRef.current = 0;
     }, 1000);
 
@@ -83,7 +95,7 @@ const WebcamCapture = ({ onDetection, isActive }) => {
       clearInterval(intervalRef.current);
       clearInterval(fpsIntervalRef.current);
     };
-  }, [isActive, capturing, captureAndPredict]);
+  }, [isActive, capturing, useRestPolling, captureAndPredict, onFpsSample]);
 
   const toggleCapture = () => {
     setCapturing(!capturing);
@@ -108,6 +120,9 @@ const WebcamCapture = ({ onDetection, isActive }) => {
             mirrored={false}
             className="w-full h-full object-cover"
             style={{ transform: 'scaleX(1)' }}
+            onUserMedia={(stream) => {
+              onUserMedia?.(stream);
+            }}
             onUserMediaError={() => {
               setError('Failed to access webcam. Please check permissions.');
             }}

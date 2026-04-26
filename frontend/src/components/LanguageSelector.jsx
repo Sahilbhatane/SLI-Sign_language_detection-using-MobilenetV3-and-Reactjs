@@ -1,10 +1,18 @@
 import React from 'react';
 
 const LanguageSelector = ({ selectedLanguage, onLanguageChange, translation, isTranslating }) => {
+  const enableExtra = import.meta.env.VITE_ENABLE_INDIAN_EXTRA === '1';
+
   const languages = [
     { code: 'en', name: 'English', flag: '🇬🇧' },
     { code: 'hi', name: 'Hindi', flag: '🇮🇳' },
     { code: 'mr', name: 'Marathi', flag: '🇮🇳' },
+    ...(enableExtra
+      ? [
+          { code: 'ta', name: 'Tamil', flag: '🇮🇳' },
+          { code: 'te', name: 'Telugu', flag: '🇮🇳' },
+        ]
+      : []),
     { code: 'es', name: 'Spanish', flag: '🇪🇸' },
     { code: 'fr', name: 'French', flag: '🇫🇷' },
     { code: 'de', name: 'German', flag: '🇩🇪' },
