@@ -12,6 +12,8 @@ Real-time Indian Sign Language phrase detection with a FastAPI backend, a React 
 run.bat
 ```
 
+**Full onboarding (new devs / clean PC):** [`docs/ONBOARDING_AND_IMPLEMENTATION_GUIDE.md`](docs/ONBOARDING_AND_IMPLEMENTATION_GUIDE.md) — run order, what was implemented on `TTS/VLM`, and how to run every test.
+
 Typical first run:
 
 1. `1` — install Python backend dependencies.
@@ -20,6 +22,7 @@ Typical first run:
 4. `4` — train EfficientNetV2-S (uses GPU if CUDA is set up).
 5. `7` — start FastAPI (`http://localhost:8000`).
 6. `9` — start React dev server (`http://localhost:3000`).
+7. Optional: `16` in `run.bat` — install WebRTC extras (`requirements-webrtc.txt`) so the UI can use **`/ws/webrtc`** (otherwise REST polling only).
 
 Confirm Hub access once (any machine): `hf auth whoami`. For a private mirror, set `SLI_HF_DATASET_REPO` before option `3`.
 

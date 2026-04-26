@@ -1,10 +1,12 @@
 @echo off
 REM Sign Language Recognition - Complete Project Launcher
 REM Quick start script for Windows
+REM Full setup + testing: see docs\ONBOARDING_AND_IMPLEMENTATION_GUIDE.md
 
 echo ========================================
 echo Sign Language Recognition - SLI
 echo ========================================
+echo Docs: docs\ONBOARDING_AND_IMPLEMENTATION_GUIDE.md
 echo.
 
 :menu
@@ -22,12 +24,14 @@ echo 19. Ingest external images into data/ (merge new dataset)
 echo === INFERENCE / UI ===
 echo 5. Test model (single image)
 echo 6. Test model (random samples)
-echo 7. Start FastAPI server
+echo 7. Start FastAPI server (REST + optional WebSocket /ws for WebRTC)
 echo 8. Test API endpoints
 echo 9. Start React frontend (dev)
 echo 10. Build frontend (production)
 echo 11. View model info
 echo 12. Open API documentation
+echo === OPTIONAL WEBRTC ===
+echo 16. Install WebRTC deps (requirements-webrtc.txt, needs same Python as option 1)
 echo === OTHER ===
 echo 13. Preprocess dataset (MediaPipe Hands)
 echo 14. Evaluate model (H5/ONNX)
@@ -52,6 +56,7 @@ if "%choice%"=="12" goto api_docs
 if "%choice%"=="13" goto preprocess
 if "%choice%"=="14" goto evaluate
 if "%choice%"=="15" goto pipeline_test
+if "%choice%"=="16" goto install_webrtc
 if "%choice%"=="17" goto train_mobilenet
 if "%choice%"=="18" goto download_isl
 if "%choice%"=="19" goto ingest_external
@@ -94,6 +99,19 @@ call npm install
 cd ..
 echo.
 echo ✓ Frontend dependencies installed!
+echo.
+pause
+goto menu
+
+:install_webrtc
+echo.
+echo Installing optional WebRTC dependencies (aiortc^)
+echo ========================================
+echo Use the SAME Python environment as backend option 1 (venv recommended^).
+echo.
+pip install -r requirements-webrtc.txt
+echo.
+echo ✓ WebRTC extras installed. Restart the API (option 7^) for /ws/webrtc.
 echo.
 pause
 goto menu
