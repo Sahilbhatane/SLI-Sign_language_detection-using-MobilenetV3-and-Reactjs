@@ -10,11 +10,36 @@ import asyncio
 import json
 import logging
 import os
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
+import numpy as np
 from fastapi import APIRouter, FastAPI, WebSocket, WebSocketDisconnect
 
 logger = logging.getLogger(__name__)
+
+
+def _overlay_json_payload(model: Any) -> Tuple[bool, Optional[List[float]], Optional[List[List[float]]]]:
+    """Plain floats/lists for JSON (avoids numpy scalar serialization issues)."""
+    bbox = getattr(model, "last_overlay_bbox_norm", None)
+    lms = getattr(model, "last_overlay_landmarks_norm", None)
+    if not bbox or len(bbox) != 4:
+        return False, None, None
+    bbox_list = [float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])]
+    lms_list: Optional[List[List[float]]] = None
+    if lms and len(lms) >= 1:
+        lms_list = [[float(p[0]), float(p[1])] for p in lms[:21]]
+    return True, bbox_list, lms_list
+
+
+def _mirror_overlay_norm_x(model: Any) -> None:
+    """Map landmark/bbox from horizontally flipped image back to original camera x (0–1)."""
+    b = getattr(model, "last_overlay_bbox_norm", None)
+    if b is not None and len(b) == 4:
+        x1, y1, x2, y2 = float(b[0]), float(b[1]), float(b[2]), float(b[3])
+        model.last_overlay_bbox_norm = (1.0 - x2, y1, 1.0 - x1, y2)
+    lms = getattr(model, "last_overlay_landmarks_norm", None)
+    if lms:
+        model.last_overlay_landmarks_norm = [[1.0 - float(p[0]), float(p[1])] for p in lms]
 
 
 def register_webrtc(app: FastAPI, get_model: Callable[[], Any]) -> None:
@@ -58,7 +83,8 @@ def register_webrtc(app: FastAPI, get_model: Callable[[], Any]) -> None:
 
                         async def loop():
                             frame_idx = 0
-                            sample_n = int(os.getenv("WEBRTC_FRAME_STRIDE", "3"))
+                            # Lower stride = smoother overlay + better static_image_mode behavior; cost CPU.
+                            sample_n = max(1, int(os.getenv("WEBRTC_FRAME_STRIDE", "2")))
                             while True:
                                 try:
                                     frame = await track.recv()
@@ -68,17 +94,30 @@ def register_webrtc(app: FastAPI, get_model: Callable[[], Any]) -> None:
                                 if frame_idx % sample_n != 0:
                                     continue
                                 try:
-                                    img = frame.to_ndarray(format="bgr24")
+                                    try:
+                                        rgb = frame.to_ndarray(format="rgb24")
+                                    except Exception:
+                                        bgr = frame.to_ndarray(format="bgr24")
+                                        rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
                                 except Exception:
                                     continue
+                                rgb = np.ascontiguousarray(rgb)
                                 model = get_model()
                                 if model is None:
                                     await safe_send({"type": "error", "message": "model_not_loaded"})
                                     return
                                 try:
-                                    rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                                     pil = Image.fromarray(rgb)
                                     arr = model.preprocess_image(pil)
+                                    if (
+                                        getattr(model, "last_overlay_bbox_norm", None) is None
+                                        and os.getenv("WEBRTC_TRY_FLIPPED", "1").strip() != "0"
+                                    ):
+                                        rgb_f = cv2.flip(rgb, 1)
+                                        arr2 = model.preprocess_image(Image.fromarray(rgb_f))
+                                        if getattr(model, "last_overlay_bbox_norm", None) is not None:
+                                            _mirror_overlay_norm_x(model)
+                                            arr = arr2
                                     preds = model.predict_top_k(arr, k=3)
                                     top = preds[0]
                                     min_conf = float(os.getenv("WEBRTC_MIN_CONFIDENCE", "0.6"))
@@ -87,6 +126,7 @@ def register_webrtc(app: FastAPI, get_model: Callable[[], Any]) -> None:
                                     if top["confidence"] >= min_conf:
                                         pred_label = top["class"]
                                         pred_conf_percent = top["confidence_percent"]
+                                    overlay_ok, bbox_list, lms_list = _overlay_json_payload(model)
                                     await safe_send(
                                         {
                                             "type": "prediction",
@@ -94,9 +134,13 @@ def register_webrtc(app: FastAPI, get_model: Callable[[], Any]) -> None:
                                             "prediction": pred_label,
                                             "confidence": pred_conf_percent,
                                             "predictions": preds,
+                                            "hand_detected": overlay_ok,
+                                            "hand_bbox_norm": bbox_list,
+                                            "hand_landmarks_norm": lms_list,
                                         }
                                     )
                                 except Exception as ex:
+                                    logger.warning("WebRTC frame inference failed: %s", ex, exc_info=True)
                                     await safe_send({"type": "error", "message": str(ex)})
 
                         track_task = asyncio.create_task(loop())

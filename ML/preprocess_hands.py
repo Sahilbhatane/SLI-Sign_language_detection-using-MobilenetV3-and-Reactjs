@@ -20,10 +20,19 @@ import numpy as np
 from PIL import Image
 from tqdm import tqdm
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_BACKEND = _REPO_ROOT / "backend"
+if str(_BACKEND) not in sys.path:
+    sys.path.insert(0, str(_BACKEND))
+
 try:
-    import mediapipe as mp
+    from mediapipe_tasks_hands import (
+        TasksHandsCompat,
+        ensure_hand_landmarker_model,
+        resolve_hand_landmarker_model_path,
+    )
 except ImportError as e:
-    print("Error: mediapipe is not installed. Please run: pip install mediapipe")
+    print("Error: mediapipe backend helpers not importable. pip install mediapipe", e)
     raise
 
 # Default parameters
@@ -119,12 +128,15 @@ def process_dataset(src_dir: Path, dst_dir: Path, img_size: int, margin: float) 
     saved_crops = 0
     skipped_images = 0
 
-    mp_hands = mp.solutions.hands
-    with mp_hands.Hands(
-        static_image_mode=True,
-        max_num_hands=2,
-        min_detection_confidence=0.5,
-        model_complexity=1,
+    model_path = resolve_hand_landmarker_model_path()
+    if not model_path.is_file():
+        ensure_hand_landmarker_model(dest=model_path)
+    with TasksHandsCompat(
+        num_hands=2,
+        min_hand_detection_confidence=0.5,
+        min_hand_presence_confidence=0.5,
+        min_tracking_confidence=0.5,
+        model_path=model_path,
     ) as hands:
         for class_folder in class_folders:
             class_name = class_folder.name
@@ -164,7 +176,7 @@ def process_dataset(src_dir: Path, dst_dir: Path, img_size: int, margin: float) 
                         out_csv_path = dst_class / f"{base}_hand{idx}.csv"
                         save_landmarks_csv(out_csv_path, lms)
                         saved_crops += 1
-                except Exception as e:
+                except Exception:
                     # Corrupted or unreadable files -> skip
                     skipped_images += 1
                     continue

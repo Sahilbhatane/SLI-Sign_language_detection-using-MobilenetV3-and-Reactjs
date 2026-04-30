@@ -9,7 +9,7 @@ import base64
 import logging
 from collections import deque
 from io import BytesIO
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, List
 
 import numpy as np
 from PIL import Image
@@ -168,27 +168,41 @@ class ONNXSignLanguageModel:
         self.last_hand_detected: bool = True
         self.last_wrist_norm_landmarks: Optional[np.ndarray] = None
         self._last_mp_raw_landmark_vec: Optional[np.ndarray] = None
-        need_mediapipe = self.enable_mediapipe_crop or (self.landmark_session is not None)
-        if need_mediapipe:
-            try:
-                import mediapipe as mp
-                self._mp = mp
-                # Single long-lived instance: real-time hand tracking, one hand (matches training focus)
-                self._mp_hands = mp.solutions.hands.Hands(
-                    static_image_mode=False,
-                    max_num_hands=1,
-                    min_detection_confidence=0.5,
-                    min_tracking_confidence=0.5,
-                    model_complexity=0,
-                )
-                if self.enable_mediapipe_crop:
-                    logger.info("MediaPipe hand detection + crop enabled (static_image_mode=False, max_num_hands=1)")
-                if self.landmark_session is not None:
-                    logger.info("MediaPipe landmark vectors enabled (landmark model loaded)")
-            except Exception as e:
-                logger.warning(f"Failed to initialize MediaPipe: {e}")
-                self._mp_hands = None
-                self.enable_mediapipe_crop = False
+        # Normalized 0–1 in full input image (for client overlay on same frame as inference)
+        self.last_overlay_bbox_norm: Optional[Tuple[float, float, float, float]] = None
+        self.last_overlay_landmarks_norm: Optional[List[List[float]]] = None
+        # Always try to load Hands so WebRTC overlay works even when ENABLE_MEDIAPIPE_CROP=0.
+        # mediapipe>=0.10.30 wheels removed `mediapipe.solutions`; use Tasks HandLandmarker.
+        try:
+            from mediapipe_tasks_hands import (
+                TasksHandsCompat,
+                ensure_hand_landmarker_model,
+                log_mediapipe_runtime_diagnostics,
+                resolve_hand_landmarker_model_path,
+            )
+
+            log_mediapipe_runtime_diagnostics()
+            model_path = resolve_hand_landmarker_model_path()
+            if not model_path.is_file():
+                ensure_hand_landmarker_model(dest=model_path)
+            logger.info("Initializing MediaPipe Tasks HandLandmarker (model=%s)", model_path)
+            self._mp_hands = TasksHandsCompat(
+                num_hands=1,
+                min_hand_detection_confidence=0.25,
+                min_hand_presence_confidence=0.25,
+                min_tracking_confidence=0.25,
+                model_path=model_path,
+            )
+            if self.enable_mediapipe_crop:
+                logger.info("MediaPipe hand detection + crop enabled (IMAGE mode, num_hands=1)")
+            elif self.landmark_session is not None:
+                logger.info("MediaPipe landmark vectors enabled (landmark model loaded)")
+            else:
+                logger.info("MediaPipe Hands loaded for live overlay (crop disabled)")
+        except Exception as e:
+            logger.warning("Failed to initialize MediaPipe: %s", e, exc_info=True)
+            self._mp_hands = None
+            self.enable_mediapipe_crop = False
 
         self.temperature = 1.0
         self._load_temperature()
@@ -259,23 +273,18 @@ class ONNXSignLanguageModel:
 
             self.last_wrist_norm_landmarks = None
             self._last_mp_raw_landmark_vec = None
+            self.last_overlay_bbox_norm = None
+            self.last_overlay_landmarks_norm = None
             ts = target_size or self.target_size or (224, 224)
             h_out, w_out = int(ts[0]), int(ts[1])
 
-            if not (self.enable_mediapipe_crop and self._mp_hands is not None):
-                self.last_hand_detected = True
-            else:
+            # Run MediaPipe whenever loaded so WebRTC overlay matches detection (even if crop is off).
+            image_np = np.ascontiguousarray(np.asarray(image, dtype=np.uint8))
+            if self._mp_hands is not None and image_np.ndim == 3 and image_np.shape[2] == 3:
                 try:
-                    image_np = np.asarray(image, dtype=np.uint8)
-                    if image_np.ndim != 3 or image_np.shape[2] != 3:
-                        self.last_hand_detected = True
-                    else:
-                        H, W, _ = image_np.shape
-                        results = self._mp_hands.process(image_np)
-                        if not results.multi_hand_landmarks:
-                            self.last_hand_detected = False
-                            img_std = np.full((h_out, w_out, 3), -1.0, dtype=np.float32)
-                            return np.expand_dims(img_std, axis=0)
+                    H, W, _ = image_np.shape
+                    results = self._mp_hands.process(image_np)
+                    if results.multi_hand_landmarks:
                         hand_lms = results.multi_hand_landmarks[0]
                         lms = list(hand_lms.landmark)
                         self.last_wrist_norm_landmarks = wrist_relative_hand_landmarks(lms)
@@ -283,21 +292,51 @@ class ONNXSignLanguageModel:
                             [v for lm in lms for v in (lm.x, lm.y, lm.z)], dtype=np.float32
                         )
                         box = hand_bbox_from_landmarks(lms, W, H, HAND_BBOX_PAD_FRAC)
-                        if box is None:
-                            self.last_hand_detected = False
-                            img_std = np.full((h_out, w_out, 3), -1.0, dtype=np.float32)
-                            return np.expand_dims(img_std, axis=0)
-                        x1, y1, x2, y2 = box
-                        crop = image_np[y1:y2, x1:x2]
-                        if crop.size == 0:
-                            self.last_hand_detected = False
-                            img_std = np.full((h_out, w_out, 3), -1.0, dtype=np.float32)
-                            return np.expand_dims(img_std, axis=0)
-                        image = Image.fromarray(crop)
+                        if box is not None:
+                            x1, y1, x2, y2 = box
+                            self.last_overlay_bbox_norm = (
+                                x1 / float(W),
+                                y1 / float(H),
+                                x2 / float(W),
+                                y2 / float(H),
+                            )
+                            self.last_overlay_landmarks_norm = [
+                                [float(lm.x), float(lm.y)] for lm in lms[:21]
+                            ]
+                        if self.enable_mediapipe_crop:
+                            if box is None:
+                                self.last_hand_detected = False
+                                self.last_overlay_bbox_norm = None
+                                self.last_overlay_landmarks_norm = None
+                                img_std = np.full((h_out, w_out, 3), -1.0, dtype=np.float32)
+                                return np.expand_dims(img_std, axis=0)
+                            x1, y1, x2, y2 = box
+                            crop = image_np[y1:y2, x1:x2]
+                            if crop.size == 0:
+                                self.last_hand_detected = False
+                                self.last_overlay_bbox_norm = None
+                                self.last_overlay_landmarks_norm = None
+                                img_std = np.full((h_out, w_out, 3), -1.0, dtype=np.float32)
+                                return np.expand_dims(img_std, axis=0)
+                            image = Image.fromarray(crop)
+                            self.last_hand_detected = True
+                        else:
+                            self.last_hand_detected = True
+                    elif self.enable_mediapipe_crop:
+                        self.last_hand_detected = False
+                        img_std = np.full((h_out, w_out, 3), -1.0, dtype=np.float32)
+                        return np.expand_dims(img_std, axis=0)
+                    else:
                         self.last_hand_detected = True
                 except Exception as e:
-                    logger.debug(f"MediaPipe crop failed, using full image: {e}")
+                    logger.debug(f"MediaPipe failed: {e}")
+                    if self.enable_mediapipe_crop:
+                        self.last_hand_detected = False
+                        img_std = np.full((h_out, w_out, 3), -1.0, dtype=np.float32)
+                        return np.expand_dims(img_std, axis=0)
                     self.last_hand_detected = True
+            else:
+                self.last_hand_detected = True
 
             # target_size is (H, W); PIL resize expects (W, H)
             image = image.resize((w_out, h_out), Image.Resampling.LANCZOS)

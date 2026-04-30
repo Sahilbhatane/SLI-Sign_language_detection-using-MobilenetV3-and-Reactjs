@@ -59,6 +59,10 @@ Feature work for the assistive upgrade is on **`TTS/VLM`**.
 | `OPENAI_LLM_MODEL`, `OPENAI_VLM_MODEL` | Model names (defaults in `.env.example` if present) |
 | `OLLAMA_BASE_URL`, `OLLAMA_MODEL` | Optional local LLM for `/llm/correct` + `/fallback` text path |
 | `WEBRTC_FRAME_STRIDE`, `WEBRTC_MIN_CONFIDENCE` | WebRTC inference sampling / gating |
+| `MEDIAPIPE_HAND_MODEL_PATH` | Optional path to `hand_landmarker.task`; if unset, first run downloads it to `backend/.cache/` (needs outbound HTTPS) |
+| `ENABLE_MEDIAPIPE_CROP` | `0` disables hand crop (full frame to ONNX); MediaPipe still loads for overlays when possible |
+
+**MediaPipe / TensorFlow note:** `mediapipe.tasks` imports TensorFlow’s `doc_controls`. TensorFlow 2.21+ expects **`protobuf` 6.x** (`requirements.txt` pins `protobuf>=6.31.1,<8`). If `import mediapipe` fails with `runtime_version` / protobuf errors, reinstall deps from a clean venv or run `pip install "protobuf>=6.31.1,<8"`.
 
 ### Frontend (`frontend/.env`)
 
