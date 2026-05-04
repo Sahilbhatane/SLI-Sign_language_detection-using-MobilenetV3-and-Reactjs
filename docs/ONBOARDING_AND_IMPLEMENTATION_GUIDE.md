@@ -1,4 +1,4 @@
-# SLI onboarding and implementation guide
+# SLI full guide for new developer.
 
 This document is for **new developers** and **new machines** with no prior context on the Sign Language Interpreter (SLI) project. It summarizes what the assistive stack does, what was added on branch **`TTS/VLM`**, how to run it end-to-end, and how to verify behavior with tests and manual checks.
 
