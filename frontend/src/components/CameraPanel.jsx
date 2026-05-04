@@ -11,6 +11,7 @@ const CameraPanel = ({ onDetection, isActive, transport, onTransportChange, onFp
   const sessionRef = useRef(null);
   const startGenRef = useRef(0);
   const [useRestPolling, setUseRestPolling] = useState(true);
+  const [handOverlay, setHandOverlay] = useState(null);
 
   const stopWebRtc = useCallback(() => {
     try {
@@ -28,6 +29,14 @@ const CameraPanel = ({ onDetection, isActive, transport, onTransportChange, onFp
       if (!msg?.success) return;
       const c = Number(msg.confidence) ?? 0;
       const confidence01 = c > 1 ? c / 100 : c;
+      if (Array.isArray(msg.hand_bbox_norm) && msg.hand_bbox_norm.length === 4) {
+        setHandOverlay({
+          bbox: msg.hand_bbox_norm,
+          landmarks: Array.isArray(msg.hand_landmarks_norm) ? msg.hand_landmarks_norm : null,
+        });
+      } else {
+        setHandOverlay(null);
+      }
       onDetection({
         phrase: msg.prediction,
         confidence: confidence01,
@@ -87,6 +96,12 @@ const CameraPanel = ({ onDetection, isActive, transport, onTransportChange, onFp
 
   useEffect(() => () => stopWebRtc(), [stopWebRtc]);
 
+  useEffect(() => {
+    if (useRestPolling) {
+      setHandOverlay(null);
+    }
+  }, [useRestPolling]);
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-sm text-gray-400 px-1">
@@ -102,6 +117,7 @@ const CameraPanel = ({ onDetection, isActive, transport, onTransportChange, onFp
         useRestPolling={useRestPolling}
         onCapturingChange={handleCapturingChange}
         onFpsSample={onFpsSample}
+        handOverlay={handOverlay}
       />
     </div>
   );

@@ -9,6 +9,12 @@ export type PredictionMessage = {
   prediction: string;
   confidence: number;
   predictions: unknown;
+  /** True when MediaPipe found a hand for this frame (same crop as ONNX). */
+  hand_detected?: boolean;
+  /** [x1, y1, x2, y2] in 0–1 relative to full frame (before crop). */
+  hand_bbox_norm?: number[] | null;
+  /** 21 points [[x,y], ...] in 0–1 image space. */
+  hand_landmarks_norm?: [number, number][] | null;
 };
 
 export type WebRtcSession = {
