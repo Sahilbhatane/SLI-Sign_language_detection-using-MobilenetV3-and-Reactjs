@@ -83,6 +83,91 @@ class TranslateRequest(BaseModel):
     format: str = Field(default="text", max_length=16)
 
 
+def _libretranslate_base() -> str:
+    return os.getenv("LIBRETRANSLATE_URL", "https://libretranslate.com").rstrip("/")
+
+
+def _build_upstream_detail(
+    code: str,
+    message: str,
+    *,
+    upstream_status: Optional[int] = None,
+    retry_after: Optional[str] = None,
+) -> Dict[str, Any]:
+    detail = {"code": code, "message": message}
+    if upstream_status is not None:
+        detail["upstream_status"] = upstream_status
+    if retry_after:
+        detail["retry_after"] = retry_after
+    return detail
+
+
+async def _libretranslate_json(
+    method: str,
+    path: str,
+    *,
+    json_body: Optional[Dict[str, Any]] = None,
+    timeout: float = 20.0,
+) -> Any:
+    base = _libretranslate_base()
+    url = f"{base}{path}"
+    request_kwargs: Dict[str, Any] = {}
+    if json_body is not None:
+        request_kwargs["json"] = json_body
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            r = await client.request(method, url, **request_kwargs)
+    except httpx.TimeoutException:
+        logger.warning("LibreTranslate timeout on %s", url)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=_build_upstream_detail("upstream_timeout", "LibreTranslate timed out"),
+        )
+    except httpx.RequestError as exc:
+        logger.warning("LibreTranslate request error on %s: %s", url, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=_build_upstream_detail("upstream_network_error", "LibreTranslate request failed"),
+        )
+
+    if r.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=_build_upstream_detail(
+                "upstream_rate_limited",
+                "LibreTranslate rate limited",
+                upstream_status=r.status_code,
+                retry_after=r.headers.get("Retry-After"),
+            ),
+        )
+    if 400 <= r.status_code < 500:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=_build_upstream_detail(
+                "upstream_4xx",
+                "LibreTranslate rejected the request",
+                upstream_status=r.status_code,
+            ),
+        )
+    if r.status_code >= 500:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=_build_upstream_detail(
+                "upstream_5xx",
+                "LibreTranslate upstream error",
+                upstream_status=r.status_code,
+            ),
+        )
+
+    try:
+        return r.json()
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=_build_upstream_detail("upstream_invalid_json", "LibreTranslate returned invalid JSON"),
+        )
+
+
 async def _openai_correct_text(text: str, max_tokens: int) -> str:
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
     if not api_key:
@@ -167,27 +252,15 @@ def register_extra_routes(app: FastAPI) -> None:
 
     @router.post("/translate", tags=["Translation"])
     async def translate_proxy(req: TranslateRequest) -> Dict[str, Any]:
-        base = os.getenv("LIBRETRANSLATE_URL", "https://libretranslate.com").rstrip("/")
-        url = f"{base}/translate"
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            r = await client.post(
-                url,
-                json={"q": req.q, "source": req.source, "target": req.target, "format": req.format},
-                headers={"Content-Type": "application/json"},
-            )
-            if r.status_code >= 400:
-                raise HTTPException(status_code=502, detail=f"upstream_translate_failed:{r.status_code}")
-            return r.json()
+        return await _libretranslate_json(
+            "POST",
+            "/translate",
+            json_body={"q": req.q, "source": req.source, "target": req.target, "format": req.format},
+        )
 
     @router.get("/translate/languages", tags=["Translation"])
     async def translate_languages() -> Any:
-        base = os.getenv("LIBRETRANSLATE_URL", "https://libretranslate.com").rstrip("/")
-        url = f"{base}/languages"
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            r = await client.get(url)
-            if r.status_code >= 400:
-                raise HTTPException(status_code=502, detail="upstream_languages_failed")
-            return r.json()
+        return await _libretranslate_json("GET", "/languages")
 
     @router.post("/tts", tags=["TTS"])
     async def tts_endpoint(req: TtsRequest) -> Response:
