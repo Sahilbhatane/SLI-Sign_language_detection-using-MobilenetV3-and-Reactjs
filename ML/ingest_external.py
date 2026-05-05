@@ -50,13 +50,46 @@ def load_mapping(path: Path) -> Dict[str, str]:
         raw = json.loads(text)
     if not isinstance(raw, dict):
         raise ValueError("Mapping file must be a YAML/JSON object (dict)")
+    errors: List[str] = []
     out: Dict[str, str] = {}
     for k, v in raw.items():
-        if k is None or str(k).strip().startswith("#"):
+        if k is None:
+            errors.append("mapping has a null key")
+            continue
+        if not isinstance(k, str):
+            errors.append(f"mapping key must be a string, got {type(k).__name__}")
+            continue
+        if k.strip().startswith("#"):
             continue
         if v is None:
+            errors.append(f"mapping value for {k!r} is null")
             continue
-        out[_norm_key(str(k))] = str(v).strip()
+        if not isinstance(v, str):
+            errors.append(f"mapping value for {k!r} must be a string, got {type(v).__name__}")
+            continue
+        target = v.strip()
+        if not target:
+            errors.append(f"mapping value for {k!r} is empty")
+            continue
+        target_path = Path(target)
+        if target_path.is_absolute() or len(target_path.parts) != 1:
+            errors.append(
+                f"mapping value for {k!r} must be a single folder name under data/, got {target!r}"
+            )
+            continue
+        if ".." in target_path.parts:
+            errors.append(f"mapping value for {k!r} cannot contain '..' (got {target!r})")
+            continue
+        norm_key = _norm_key(k)
+        if norm_key in out and out[norm_key] != target:
+            errors.append(
+                f"mapping key {k!r} collides after normalization with a different target ({out[norm_key]!r} vs {target!r})"
+            )
+            continue
+        out[norm_key] = target
+    if errors:
+        detail = "\n".join(f"- {msg}" for msg in errors)
+        raise ValueError(f"Invalid mapping file {path}:\n{detail}")
     return out
 
 
