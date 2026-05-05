@@ -65,6 +65,7 @@ function App() {
   const [llmGrammarEnabled, setLlmGrammarEnabled] = useState(() => readBoolLs(LS_LLM_GRAMMAR, false));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [transport, setTransport] = useState('rest');
+  const [lastWebRtcFallback, setLastWebRtcFallback] = useState(null);
   const [approxFps, setApproxFps] = useState(0);
   const [llmFollowUpSpoke, setLlmFollowUpSpoke] = useState(false);
   const [usingAiFallback, setUsingAiFallback] = useState(false);
@@ -117,6 +118,13 @@ function App() {
 
   const onLlmFollowUp = useCallback((used) => {
     setLlmFollowUpSpoke(Boolean(used));
+  }, []);
+
+  const handleTransportChange = useCallback((nextTransport) => {
+    setTransport(nextTransport);
+    if (nextTransport === 'webrtc') {
+      setLastWebRtcFallback(null);
+    }
   }, []);
 
   const sentence = useSentencePipeline({
@@ -369,7 +377,8 @@ function App() {
                   onDetection={handleDetection}
                   isActive={backendConnected}
                   transport={transport}
-                  onTransportChange={setTransport}
+                  onTransportChange={handleTransportChange}
+                  onWebRtcFallback={setLastWebRtcFallback}
                   onFpsSample={setApproxFps}
                 />
 
@@ -497,6 +506,7 @@ function App() {
         transport={transport}
         approxFps={transport === 'webrtc' ? null : approxFps}
         lastConfidence={detection?.confidence}
+        lastWebRtcFallback={lastWebRtcFallback}
         ttsProvider={ttsProvider}
         llmGrammarEnabled={llmGrammarEnabled}
         llmFollowUpSpoke={llmFollowUpSpoke}
