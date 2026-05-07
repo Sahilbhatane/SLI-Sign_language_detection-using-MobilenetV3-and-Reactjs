@@ -131,14 +131,16 @@ async def _libretranslate_json(
         )
 
     if r.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
+        retry_after = r.headers.get("Retry-After")
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=_build_upstream_detail(
                 "upstream_rate_limited",
                 "LibreTranslate rate limited",
                 upstream_status=r.status_code,
-                retry_after=r.headers.get("Retry-After"),
+                retry_after=retry_after,
             ),
+            headers={"Retry-After": retry_after} if retry_after is not None else None,
         )
     if 400 <= r.status_code < 500:
         raise HTTPException(
