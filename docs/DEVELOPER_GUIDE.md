@@ -64,6 +64,41 @@ Feature work for the assistive upgrade is on **`TTS/VLM`**.
 
 **MediaPipe / TensorFlow note:** `mediapipe.tasks` imports TensorFlow’s `doc_controls`. TensorFlow 2.21+ expects **`protobuf` 6.x** (`requirements.txt` pins `protobuf>=6.31.1,<8`). If `import mediapipe` fails with `runtime_version` / protobuf errors, reinstall deps from a clean venv or run `pip install "protobuf>=6.31.1,<8"`.
 
+### LibreTranslate (self-hosted)
+
+The default `LIBRETRANSLATE_URL` uses the public instance, which is rate limited. For reliable translations, run a local container and point the backend to it.
+
+```powershell
+docker run --rm -p 5000:5000 --name libretranslate libretranslate/libretranslate
+```
+
+Set in `backend/.env` (or process env):
+
+```powershell
+LIBRETRANSLATE_URL=http://localhost:5000
+```
+
+Optional: limit languages to reduce startup time and memory:
+
+```powershell
+docker run --rm -p 5000:5000 --name libretranslate -e LT_LOAD_ONLY=en,hi,mr,ta,te,es,fr libretranslate/libretranslate
+```
+
+Verify it is up:
+
+```powershell
+curl http://localhost:5000/languages
+```
+
+Translation proxy failures typically come from rate limits, timeouts, or unsupported language codes. The backend surfaces these as `detail.code` values:
+
+- `upstream_rate_limited`
+- `upstream_timeout`
+- `upstream_network_error`
+- `upstream_4xx`
+- `upstream_5xx`
+- `upstream_invalid_json`
+
 ### Frontend (`frontend/.env`)
 
 | Name | Purpose |
