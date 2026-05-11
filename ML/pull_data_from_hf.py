@@ -23,7 +23,9 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
 
 DEFAULT_HF_DATASET_REPO = "SahilBhatane/sli"
-VALID_IMG_EXT = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
+# Keep this in sync with the training/counting pipeline to avoid misleading
+# post-sync stats for files that downstream scripts do not process.
+VALID_IMG_EXT = {".png", ".jpg", ".jpeg", ".bmp"}
 
 
 def resolve_repo_id(explicit: str | None) -> str:
