@@ -85,11 +85,23 @@ class ONNXSignLanguageModel:
         if hasattr(self, '_initialized') and self._initialized:
             return
 
-        # Set default paths
+        # Set default paths (env overrides; prefer model_v2.onnx with legacy fallback)
         if model_path is None:
-            model_path = os.path.join(os.path.dirname(__file__), "model_v2.onnx")
+            env_model_path = os.getenv("MODEL_PATH", "").strip()
+            if env_model_path:
+                model_path = env_model_path
+            else:
+                default_model_path = os.path.join(os.path.dirname(__file__), "model_v2.onnx")
+                legacy_model_path = os.path.join(os.path.dirname(__file__), "model.onnx")
+                if os.path.exists(default_model_path):
+                    model_path = default_model_path
+                elif os.path.exists(legacy_model_path):
+                    model_path = legacy_model_path
+                else:
+                    model_path = default_model_path
         if labels_path is None:
-            labels_path = os.path.join(os.path.dirname(__file__), "class_labels.txt")
+            env_labels_path = os.getenv("LABELS_PATH", "").strip()
+            labels_path = env_labels_path or os.path.join(os.path.dirname(__file__), "class_labels.txt")
 
         self.model_path = model_path
         self.labels_path = labels_path
