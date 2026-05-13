@@ -24,6 +24,7 @@ Use **`run.bat`** from the repo root (see onboarding doc for the full menu walkt
 3. **Optional WebRTC**: option **16** — `pip install -r requirements-webrtc.txt`
 4. **Start API**: option **7** (needs `backend/model_v2.onnx` + `backend/class_labels.txt` from training option **4**)
 5. **Start UI**: option **9** → `http://localhost:3000` (Vite proxies `/api` and `/ws` to port 8000)
+6. **One-shot dev**: option **20** or `run-dev.bat` opens backend + frontend in two windows (close windows or Ctrl+C to stop)
 
 Manual commands:
 

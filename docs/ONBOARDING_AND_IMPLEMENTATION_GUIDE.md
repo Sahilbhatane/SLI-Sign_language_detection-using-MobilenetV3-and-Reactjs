@@ -91,8 +91,9 @@ Typical sequence for **first-time developers**:
 | 4 | **4** (if you have no model) | Train EfficientNetV2-S → writes `backend/model_v2.onnx`, etc. |
 | 5 | **7** | Start FastAPI: **`http://localhost:8000`**, docs at **`/docs`** |
 | 6 | **9** | Start Vite dev server: **`http://localhost:3000`** (proxies `/api` and `/ws` to port 8000) |
+| 7 | **20** | Start backend + frontend in two windows (alternative to steps 5–6) |
 
-Keep **7** and **9** in **two terminals** (or two `run.bat` windows). Open the app at **`http://localhost:3000`**, go to **Detect**, start the camera, then **Start detection**.
+Keep **7** and **9** in **two terminals** (or two `run.bat` windows), or use **20** / `run-dev.bat` to open them for you. To stop, press **Ctrl+C** in each window (or close them); re-running the dev launcher closes prior SLI dev windows. Open the app at **`http://localhost:3000`**, go to **Detect**, start the camera, then **Start detection**.
 
 ### 4.2 Manual commands (same as CI or Linux-style shells)
 
