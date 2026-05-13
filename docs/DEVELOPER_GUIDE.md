@@ -152,6 +152,13 @@ cd backend
 ..\venv\Scripts\python.exe -m unittest test_llm_sanitize -v
 ```
 
+**Backend integration** (FastAPI app, fake model, from `backend/`):
+
+```powershell
+cd backend
+..\venv\Scripts\python.exe -m unittest test_integration_api -v
+```
+
 **Live API** (requires server on port 8000):
 
 ```powershell

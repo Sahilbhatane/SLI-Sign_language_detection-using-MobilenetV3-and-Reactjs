@@ -48,6 +48,7 @@ Below is a concise list of **behavior and files** you should know about when rea
 - **`frontend/src/hooks/sentencePipeline.test.ts`** — Streak, average confidence gate, Jaccard helper.
 - **`frontend/src/services/translationService.test.ts`** — Gloss key variants.
 - **`backend/test_llm_sanitize.py`** — **`unittest`**: Jaccard and **`_sanitize_llm_correction`** behavior (run from `backend/`).
+- **`backend/test_integration_api.py`** — **`unittest`**: FastAPI integration for core endpoints using a fake model (no ONNX needed).
 
 ---
 
@@ -161,7 +162,18 @@ cd backend
 ..\venv\Scripts\python.exe -m unittest test_llm_sanitize -v
 ```
 
-### 5.3 Manual / integration — API script
+### 5.3 Automated — backend integration (FastAPI, fake model)
+
+From **`backend/`**:
+
+```powershell
+cd backend
+..\venv\Scripts\python.exe -m unittest test_integration_api -v
+```
+
+**Covers:** `/`, `/health`, `/classes`, `/model-info`, and `/predict` without loading the ONNX model.
+
+### 5.4 Manual / integration — API script
 
 With the **server running** on port 8000:
 
@@ -172,7 +184,7 @@ python backend\test_api.py
 
 `run.bat` option **8** runs the same script (it expects a live server).
 
-### 5.4 Manual — UI checklist (Detect tab)
+### 5.5 Manual — UI checklist (Detect tab)
 
 | # | Action | Expected |
 |---|--------|----------|
@@ -185,7 +197,7 @@ python backend\test_api.py
 | 7 | Settings — LLM grammar | With backend keys, `/llm/correct` improves text; unsafe drift is rejected server-side |
 | 8 | Dev build (`npm run dev`) | Debug overlay (bottom-right): transport, FPS, confidence, TTS, LLM flags |
 
-### 5.5 WebRTC-specific checks
+### 5.6 WebRTC-specific checks
 
 1. Install **`requirements-webrtc.txt`**, restart **`python backend/main.py`**.
 2. Confirm no log line saying WebRTC is disabled.

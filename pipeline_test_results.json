@@ -1,0 +1,54 @@
+{
+  "start_time": "2026-05-13T13:32:27.908914",
+  "backend": {
+    "pid": 3544,
+    "status": "started",
+    "ready": true
+  },
+  "frontend": {
+    "pid": 2972,
+    "status": "started",
+    "ready": false
+  },
+  "tests": {
+    "backend": {
+      "total": 4,
+      "passed": 4,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "GET /",
+          "status": "pass",
+          "latency_ms": 2046.5991497039795
+        },
+        {
+          "name": "GET /health",
+          "status": "pass",
+          "latency_ms": 2035.1526737213135,
+          "model_loaded": true
+        },
+        {
+          "name": "GET /classes",
+          "status": "pass",
+          "latency_ms": 2037.0194911956787,
+          "num_classes": 44
+        },
+        {
+          "name": "POST /predict (dummy image)",
+          "status": "pass",
+          "latency_ms": 2071.470260620117,
+          "prediction": "Detecting...",
+          "confidence": 0.0
+        }
+      ]
+    },
+    "evaluation": {
+      "status": "failed",
+      "reason": "Model or data not found",
+      "error": "WARNING: All log messages before absl::InitializeLog() is called are written to STDERR\nI0000 00:00:1778659392.639038    5604 port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.\nWARNING: All log messages before absl::InitializeLog() is called are written to STDERR\nI0000 00:00:1778659395.242257    5604 port.cc"
+    }
+  },
+  "summary": {},
+  "end_time": "2026-05-13T13:33:16.752900",
+  "duration_seconds": 48.843986
+}
