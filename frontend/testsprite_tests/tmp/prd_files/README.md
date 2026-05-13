@@ -79,7 +79,7 @@ SLI/
 │   ├── 📄 main.py                # FastAPI application
 │   ├── 📄 onnx_utils.py          # ONNX wrapper utilities
 │   ├── 📄 .env.example           # Environment variables template
-│   ├── 🤖 model.onnx             # Trained model (created by training)
+│   ├── 🤖 model_v2.onnx          # Trained model (created by training)
 │   └── 📄 class_labels.txt       # Class names (created by training)
 │
 ├── 📁 ML/                         # ML experiments
@@ -199,7 +199,7 @@ Output will be in `frontend/dist/` directory.
 ### What You'll Get
 
 After training completes, you'll have:
-1. **`backend/model.onnx`** - Production-ready ONNX model
+1. **`backend/model_v2.onnx`** - Production-ready ONNX model
 2. **`backend/class_labels.txt`** - List of all 44 sign phrases
 3. **`training_history.png`** - Training/validation accuracy & loss plots
 4. **`best_model.h5`** - Keras checkpoint (backup)
@@ -318,7 +318,7 @@ Check if the API is ready and model is loaded.
 {
   "status": "healthy",
   "model_loaded": true,
-  "model_path": "./backend/model.onnx",
+  "model_path": "./backend/model_v2.onnx",
   "num_classes": 44,
   "input_shape": [1, 224, 224, 3]
 }
@@ -557,7 +557,7 @@ allow_origins=["https://your-app.vercel.app"]
 5. **Build command**: `pip install -r ../requirements.txt`
 6. **Start command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
 7. Set environment variables:
-   - `MODEL_PATH=./model.onnx`
+  - `MODEL_PATH=./model_v2.onnx`
    - `LABELS_PATH=./class_labels.txt`
    - `ALLOWED_ORIGINS=https://your-frontend.vercel.app`
 8. Deploy!
@@ -602,7 +602,7 @@ docker run -p 8000:8000 sli-backend
 Set these in your deployment platform:
 - `PORT`: 8000 (or platform default)
 - `ALLOWED_ORIGINS`: Your frontend URL
-- `MODEL_PATH`: `./model.onnx`
+- `MODEL_PATH`: `./model_v2.onnx`
 - `LABELS_PATH`: `./class_labels.txt`
 
 ---
@@ -689,7 +689,7 @@ python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU')
 python train.py
 
 # Verify files exist
-dir backend\model.onnx
+dir backend\model_v2.onnx
 dir backend\class_labels.txt
 ```
 
@@ -845,7 +845,7 @@ DEBUG=True
 ALLOWED_ORIGINS=*
 
 # Model Configuration
-MODEL_PATH=./model.onnx
+MODEL_PATH=./model_v2.onnx
 LABELS_PATH=./class_labels.txt
 
 # Logging
