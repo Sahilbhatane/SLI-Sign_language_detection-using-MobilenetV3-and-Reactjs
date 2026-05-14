@@ -40,6 +40,17 @@ Maintainers refreshing the Hub copy after local merges: `python ML/upload_data_t
 
 `ML/train_efficientnetv2.py` prints per-class image counts, and when the max/min ratio is ≥ 3× it auto-enables `class_weight` in `model.fit` so rare classes are not ignored during training.
 
+## Recovery when model files drift
+
+If `backend/model_v2.onnx` and `backend/class_labels.txt` are out of sync with the folders in `data/`, predictions will map to the wrong labels. Recovery steps:
+
+1. Re-sync `data/` (e.g. `python ML/pull_data_from_hf.py` or `python ML/ingest_external.py`).
+2. Verify the expected class folders exist under `data/` and match your intended labels.
+3. Retrain with `python ML/train_efficientnetv2.py` (this rewrites both `model_v2.onnx` and `class_labels.txt`).
+4. Deploy `model_v2.onnx` and `class_labels.txt` together; never mix files from different training runs.
+
+Quick check: the number of class folders under `data/` should match the number of lines in `backend/class_labels.txt`.
+
 ## Git
 
 Image files under `data/` are **git-ignored** to keep the repository small. Only this `README.md` is tracked (`!data/README.md` in the root `.gitignore`).
