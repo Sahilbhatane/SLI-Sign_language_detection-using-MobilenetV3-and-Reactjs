@@ -24,6 +24,8 @@ Typical first run:
 6. `9` — start React dev server (`http://localhost:3000`).
 7. Optional: `16` in `run.bat` — install WebRTC extras (`requirements-webrtc.txt`) so the UI can use **`/ws/webrtc`** (otherwise REST polling only).
 
+One-shot dev launcher: use `run.bat` option `20` or `run-dev.bat` to open backend + frontend in two windows. Stop them with **Ctrl+C** (or close the windows). Re-running the launcher closes prior SLI dev windows.
+
 Confirm Hub access once (any machine): `hf auth whoami`. For a private mirror, set `SLI_HF_DATASET_REPO` before option `3`.
 
 Optional augmentation: `18` / `19` download Mendeley corpora into `datasets_raw/` and merge extra images into `data/`.
@@ -105,6 +107,7 @@ SLI/
 ├── datasets_raw/               # Unpacked external archives (git-ignored)
 ├── DATASETS.md                 # Data sources, attribution, licensing
 ├── run.bat                     # Windows launcher (menu)
+├── run-dev.bat                 # One-shot dev launcher (backend + frontend)
 └── requirements.txt
 ```
 

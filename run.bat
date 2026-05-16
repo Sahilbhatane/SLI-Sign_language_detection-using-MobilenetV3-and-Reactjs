@@ -27,6 +27,7 @@ echo 6. Test model (random samples)
 echo 7. Start FastAPI server (REST + optional WebSocket /ws for WebRTC)
 echo 8. Test API endpoints
 echo 9. Start React frontend (dev)
+echo 20. Start API + frontend (dev, two windows)
 echo 10. Build frontend (production)
 echo 11. View model info
 echo 12. Open API documentation
@@ -39,7 +40,7 @@ echo 15. Run end-to-end pipeline test
 echo 0. Exit
 echo.
 
-set /p choice="Enter your choice (0-19): "
+set /p choice="Enter your choice (0-20): "
 
 if "%choice%"=="1" goto install
 if "%choice%"=="2" goto install_frontend
@@ -50,6 +51,7 @@ if "%choice%"=="6" goto test_samples
 if "%choice%"=="7" goto start_server
 if "%choice%"=="8" goto test_api
 if "%choice%"=="9" goto start_frontend
+if "%choice%"=="20" goto start_dev
 if "%choice%"=="10" goto build_frontend
 if "%choice%"=="11" goto model_info
 if "%choice%"=="12" goto api_docs
@@ -272,6 +274,14 @@ cd frontend
 call npm run dev
 cd ..
 pause
+goto menu
+
+:start_dev
+echo.
+echo Starting backend + frontend in two windows...
+echo ========================================
+call run-dev.bat
+echo.
 goto menu
 
 :build_frontend

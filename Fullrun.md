@@ -136,6 +136,8 @@ cd ..
 
 ## 8. Run the app (two terminals)
 
+Prefer a one-shot launcher? Use `run-dev.bat` or `run.bat` option `20` to open backend + frontend in two windows. Stop them with **Ctrl+C** (or close the windows). Re-running the launcher closes prior SLI dev windows.
+
 **Terminal A — backend**
 
 ```powershell
@@ -175,6 +177,7 @@ Typical sequence:
 4. `4` — train EfficientNetV2-S (for best accuracy on this snapshot).
 5. `7` — start API (if `run.bat` starts server for you; otherwise still use `python backend\main.py` as above).
 6. `9` — start React dev server.
+7. `20` — one-shot dev launcher (opens backend + frontend windows for you).
 
 (Exact menu labels match your current `run.bat`.)
 
