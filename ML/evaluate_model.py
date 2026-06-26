@@ -101,7 +101,8 @@ def list_dataset_images(data_dir: Path, class_names: List[str], limit: int | Non
 def preprocess_pil(img: Image.Image, target_size: Tuple[int, int]) -> np.ndarray:
     if img.mode != 'RGB':
         img = img.convert('RGB')
-    img = img.resize((target_size[1], target_size[0]), Image.Resampling.LANCZOS)
+    # BILINEAR matches training (image_dataset_from_directory default) and backend inference.
+    img = img.resize((target_size[1], target_size[0]), Image.Resampling.BILINEAR)
     arr = np.array(img, dtype=np.float32)
     # Match ML/train_mobilenet.py and backend inference: image / 127.5 - 1.0
     t = tf.convert_to_tensor(arr)

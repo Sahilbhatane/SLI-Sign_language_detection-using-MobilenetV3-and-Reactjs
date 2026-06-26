@@ -80,7 +80,7 @@ class ONNXSignLanguageModel:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self, model_path: str = None, labels_path: str = None, enable_mediapipe_crop: bool = True, smoothing_window: int = 5):
+    def __init__(self, model_path: str = None, labels_path: str = None, enable_mediapipe_crop: bool = True, smoothing_window: int = 1):
         # Only initialize once
         if hasattr(self, '_initialized') and self._initialized:
             return
@@ -162,8 +162,19 @@ class ONNXSignLanguageModel:
             self.class_labels = [line.strip() for line in f.readlines()]
         self.num_classes = len(self.class_labels)
 
-        _env = os.environ.get("ENABLE_MEDIAPIPE_CROP", "1").strip()
-        self.enable_mediapipe_crop = bool(enable_mediapipe_crop) and _env != "0"
+        # IMPORTANT (accuracy): the classifier is trained on FULL upper-body frames
+        # (see ML/train_efficientnetv2.py -> image_dataset_from_directory on data/).
+        # Feeding it a tight MediaPipe hand crop is out-of-distribution and collapses
+        # accuracy (measured 98.5% full-frame vs 27.1% hand-crop on the dataset).
+        # Crop is therefore OFF by default; MediaPipe is still used for the live
+        # overlay and hand-presence gating. Only enable crop with a model that was
+        # explicitly trained on hand crops (ML/preprocess_hands.py -> data_preprocessed/).
+        _env = os.environ.get("ENABLE_MEDIAPIPE_CROP", "0").strip()
+        self.enable_mediapipe_crop = bool(enable_mediapipe_crop) and _env == "1"
+        # When crop is off we still gate predictions on hand presence so empty frames
+        # don't yield confident garbage on a live stream. Set ENABLE_HAND_GATING=0 to
+        # always predict on the full frame (e.g. for offline dataset scoring).
+        self.hand_gating = os.environ.get("ENABLE_HAND_GATING", "1").strip() != "0"
         self._mp_hands = None
         self.last_hand_detected: bool = True
         self.last_wrist_norm_landmarks: Optional[np.ndarray] = None
@@ -207,6 +218,17 @@ class ONNXSignLanguageModel:
         self.temperature = 1.0
         self._load_temperature()
 
+        # Backend inference is stateless by default (window=1). A single global model
+        # instance serves REST and WebRTC for all clients, so a shared rolling buffer
+        # would average probabilities across unrelated frames/sessions and corrupt
+        # results. Temporal stabilization is done per-stream on the frontend. Set
+        # PRED_SMOOTHING_WINDOW > 1 only for a single-client live setup.
+        _sw_env = os.environ.get("PRED_SMOOTHING_WINDOW")
+        if _sw_env is not None:
+            try:
+                smoothing_window = int(_sw_env)
+            except ValueError:
+                logger.warning("Invalid PRED_SMOOTHING_WINDOW=%r; using %d", _sw_env, smoothing_window)
         self.pred_history = deque(maxlen=max(1, int(smoothing_window)))
 
         logger.info("✓ Model loaded successfully")
@@ -327,19 +349,24 @@ class ONNXSignLanguageModel:
                         img_std = np.full((h_out, w_out, 3), -1.0, dtype=np.float32)
                         return np.expand_dims(img_std, axis=0)
                     else:
-                        self.last_hand_detected = True
+                        # No hand found, crop disabled: gate to "Detecting..." when
+                        # hand gating is on; otherwise predict on the full frame.
+                        self.last_hand_detected = not self.hand_gating
                 except Exception as e:
                     logger.debug(f"MediaPipe failed: {e}")
                     if self.enable_mediapipe_crop:
                         self.last_hand_detected = False
                         img_std = np.full((h_out, w_out, 3), -1.0, dtype=np.float32)
                         return np.expand_dims(img_std, axis=0)
+                    # Transient MediaPipe error: keep predicting on the full frame.
                     self.last_hand_detected = True
             else:
                 self.last_hand_detected = True
 
-            # target_size is (H, W); PIL resize expects (W, H)
-            image = image.resize((w_out, h_out), Image.Resampling.LANCZOS)
+            # target_size is (H, W); PIL resize expects (W, H).
+            # BILINEAR matches training (keras image_dataset_from_directory default),
+            # keeping inference preprocessing identical to training preprocessing.
+            image = image.resize((w_out, h_out), Image.Resampling.BILINEAR)
 
             img = np.array(image, dtype=np.float32)
             # Match ML/train_mobilenet.py: image / 127.5 - 1.0 -> [-1, 1]

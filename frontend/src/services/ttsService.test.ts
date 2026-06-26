@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { canSpeakDetection, createTtsService } from './ttsService';
+import { canSpeakDetection, createTtsService, SPEAK_MIN_CONFIDENCE } from './ttsService';
 
 describe('ttsService', () => {
   beforeEach(() => {
@@ -7,9 +7,11 @@ describe('ttsService', () => {
     vi.setSystemTime(new Date('2026-04-26T10:00:00Z'));
   });
 
-  it('only allows speech for accepted detections at or above 0.95 confidence', () => {
-    expect(canSpeakDetection({ text: 'hello', confidence: 0.949 })).toBe(false);
-    expect(canSpeakDetection({ text: 'hello', confidence: 0.95 })).toBe(true);
+  it('only allows speech for accepted detections at or above the reachable threshold', () => {
+    expect(SPEAK_MIN_CONFIDENCE).toBeLessThanOrEqual(0.9); // must be reachable under label smoothing
+    expect(canSpeakDetection({ text: 'hello', confidence: SPEAK_MIN_CONFIDENCE - 0.001 })).toBe(false);
+    expect(canSpeakDetection({ text: 'hello', confidence: SPEAK_MIN_CONFIDENCE })).toBe(true);
+    expect(canSpeakDetection({ text: 'hello', confidence: 0.9 })).toBe(true);
     expect(canSpeakDetection({ text: 'Detecting...', confidence: 1 })).toBe(false);
     expect(canSpeakDetection({ text: '', confidence: 1 })).toBe(false);
   });

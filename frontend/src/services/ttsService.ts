@@ -5,7 +5,7 @@ import { DETECTING_PHRASE } from '../utils/signSpeech';
 export type TtsProvider = 'edge' | 'server' | 'elevenlabs';
 
 export type SpeakOptions = {
-  /** When set, speech is allowed only if confidence >= 0.95 (model phrase path). */
+  /** When set, speech is allowed only if confidence >= SPEAK_MIN_CONFIDENCE. */
   confidence?: number;
 };
 
@@ -13,10 +13,22 @@ const DEFAULT_COOLDOWN_MS = 1500;
 /** Same phrase is not re-spoken within this window even after cooldown expires. */
 const DEFAULT_SEMANTIC_DEDUPE_MS = 8000;
 
+/**
+ * Minimum confidence to voice a detection.
+ *
+ * Must be reachable: the classifier is trained with label_smoothing=0.1, which
+ * caps the correct-class probability near ~0.90, so a 0.95 gate made voice output
+ * effectively never fire. This is aligned with the detection-acceptance threshold
+ * (backend `min_confidence`, default 0.6) so anything shown to the user can also be
+ * spoken. Sentence-level stability (consecutive identical frames) is enforced
+ * separately in the sentence pipeline, so this is a secondary safety filter.
+ */
+export const SPEAK_MIN_CONFIDENCE = 0.6;
+
 export function canSpeakDetection(input: { text: string; confidence: number }): boolean {
   const t = String(input.text || '').trim();
   if (!t || t === DETECTING_PHRASE) return false;
-  return input.confidence >= 0.95;
+  return input.confidence >= SPEAK_MIN_CONFIDENCE;
 }
 
 export type TtsServiceDeps = {
