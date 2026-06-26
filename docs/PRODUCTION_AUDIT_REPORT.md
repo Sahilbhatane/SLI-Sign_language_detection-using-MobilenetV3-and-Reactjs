@@ -99,11 +99,40 @@ Strong alternates: `congratulations`, `how are you`, `stop`, `sun`, `book`.
 ## Phase 5 — Live detection pipeline
 
 - REST `/predict` and WebRTC `/ws/webrtc` share one global model instance.
-- **Latency (CPU, full frame):** ONNX‑only **11 ms** (~90 FPS); full pipeline incl.
-  MediaPipe + preprocess **89 ms** → **~11 FPS**. MediaPipe hand detection dominates (~78 ms).
-- WebRTC already samples every Nth frame (`WEBRTC_FRAME_STRIDE`, default 3) — good.
-- With a GPU, ONNX inference drops to a few ms and full pipeline is real‑time.
-- Optional future speed‑up: run MediaPipe every Nth frame and reuse the last overlay.
+- MediaPipe hand detection dominated latency (~78 ms of ~89 ms) because it ran in
+  **IMAGE** mode — full palm detection on every frame.
+
+**Optimizations applied (evidence: `ML/bench_mediapipe.py`, 40 sequential frames, CPU):**
+
+| MediaPipe config | ms/frame | FPS | hand found |
+|---|---|---|---|
+| IMAGE, full 640 (old default) | 77–133 | 7.5–13 | 23–40 / 40 |
+| VIDEO, full 640 | 48.8 | 20.5 | 40/40 |
+| **VIDEO + downscale 320 (new default)** | **41.2** | **24.3** | 39–40/40 |
+
+1. **VIDEO running mode** (`MEDIAPIPE_RUNNING_MODE=video`): temporal tracking re‑runs the
+   heavy palm detector only when the hand is lost → ~1.6–1.9× faster on a stream.
+   Serialized with a lock + internal monotonic clock (safe for the shared singleton).
+2. **Downscale detection input to 320px** (`MEDIAPIPE_MAX_SIDE=320`): landmarks are
+   normalized, so overlay/crop coordinates are unchanged. Faster **and** more reliable —
+   on `stop`, hand detection went **23/40 → 39/40** frames (the old full‑res miss rate was
+   a major cause of flickery/laggy tracing).
+3. **NumPy normalize** replaces the per‑frame TensorFlow `convert_to_tensor` path
+   (bit‑identical for the linear `x/127.5−1`, see `ML/test_preprocess_norm.py`).
+4. **ORT CPU tuning** (`ORT_SEQUENTIAL`, `dynamic_block_base=4`, `allow_spinning=1`,
+   `ORT_INTRA_OP_THREADS` env).
+
+**Real end‑to‑end pipeline (preprocess + classify, same frames, CPU):**
+
+| Class | Before (image/full + TF norm) | After (video/320 + numpy norm) |
+|---|---|---|
+| again | 121 ms (8.3 fps), 40/40 | **72 ms (13.8 fps), 40/40** |
+| stop | 103 ms (9.7 fps), **23/40** | **78 ms (12.8 fps), 39/40** |
+
+- Accuracy **unchanged at 98.48%** (these changes never touch classification).
+- WebRTC samples every Nth frame (`WEBRTC_FRAME_STRIDE`); with the faster pipeline a
+  stride of 1–2 now gives smooth tracing.
+- With a GPU, ONNX inference drops to a few ms and the full pipeline is real‑time.
 
 ## Phase 6 — Confidence stabilization (and a real bug)
 

@@ -2,6 +2,7 @@ import React, { useRef, useState, useCallback, useEffect, useLayoutEffect } from
 import Webcam from 'react-webcam';
 import axios from 'axios';
 import { MP_HAND_CONNECTIONS } from '../utils/mpHandConnections';
+import { HAND_OVERLAY_STYLES, normalizeHandOverlayList } from '../utils/handOverlay';
 
 /**
  * Map normalized image coords (0–1) to canvas pixels for CSS object-fit: cover.
@@ -24,13 +25,14 @@ const WebcamCapture = ({
   useRestPolling = true,
   onCapturingChange,
   onFpsSample,
-  /** @type {{ bbox: number[], landmarks: [number, number][] | null } | null} */
+  /** @type {{ hands?: { bbox: number[], landmarks: [number, number][] | null }[] } | null} */
   handOverlay = null,
 }) => {
   const [confidenceThreshold, setConfidenceThreshold] = useState(0.6);
   const webcamRef = useRef(null);
   const overlayWrapRef = useRef(null);
   const overlayCanvasRef = useRef(null);
+  const [restHandOverlay, setRestHandOverlay] = useState(null);
   const [capturing, setCapturing] = useState(false);
   const [error, setError] = useState(null);
   const [lastCapture, setLastCapture] = useState(null);
@@ -80,6 +82,9 @@ const WebcamCapture = ({
           processingTimeMs: response.data.processing_time_ms,
           minConfidence: response.data.min_confidence ?? confidenceThreshold,
         });
+
+        const hands = normalizeHandOverlayList(response.data);
+        setRestHandOverlay(hands.length > 0 ? { hands } : null);
         setError(null);
       }
     } catch (err) {
@@ -116,6 +121,15 @@ const WebcamCapture = ({
     };
   }, [isActive, capturing, useRestPolling, captureAndPredict, onFpsSample]);
 
+  useEffect(() => {
+    if (!useRestPolling) {
+      setRestHandOverlay(null);
+    }
+  }, [useRestPolling]);
+
+  const effectiveOverlay = useRestPolling ? restHandOverlay : handOverlay;
+  const handsToDraw = normalizeHandOverlayList(effectiveOverlay);
+
   useLayoutEffect(() => {
     const canvas = overlayCanvasRef.current;
     const wrap = overlayWrapRef.current;
@@ -142,51 +156,53 @@ const WebcamCapture = ({
       const vw = video.videoWidth || video.clientWidth || 640;
       const vh = video.videoHeight || video.clientHeight || 480;
 
-      const bbox = handOverlay?.bbox;
-      const landmarks = handOverlay?.landmarks;
+      if (handsToDraw.length > 0) {
+        handsToDraw.forEach((hand, idx) => {
+          const style = HAND_OVERLAY_STYLES[idx % HAND_OVERLAY_STYLES.length];
+          const bbox = hand.bbox;
+          const landmarks = hand.landmarks;
+          const [x1, y1, x2, y2] = bbox;
+          const [px1, py1] = mapNormToCanvasIntrinsic(x1, y1, vw, vh, cw, ch);
+          const [px2, py2] = mapNormToCanvasIntrinsic(x2, y2, vw, vh, cw, ch);
+          const left = Math.min(px1, px2);
+          const top = Math.min(py1, py2);
+          const w = Math.abs(px2 - px1);
+          const h = Math.abs(py2 - py1);
 
-      if (bbox && bbox.length === 4) {
-        const [x1, y1, x2, y2] = bbox;
-        const [px1, py1] = mapNormToCanvasIntrinsic(x1, y1, vw, vh, cw, ch);
-        const [px2, py2] = mapNormToCanvasIntrinsic(x2, y2, vw, vh, cw, ch);
-        const left = Math.min(px1, px2);
-        const top = Math.min(py1, py2);
-        const w = Math.abs(px2 - px1);
-        const h = Math.abs(py2 - py1);
+          ctx.strokeStyle = style.bbox;
+          ctx.lineWidth = 3;
+          ctx.setLineDash([]);
+          ctx.strokeRect(left, top, w, h);
 
-        ctx.strokeStyle = 'rgba(34, 211, 238, 0.95)';
-        ctx.lineWidth = 3;
-        ctx.setLineDash([]);
-        ctx.strokeRect(left, top, w, h);
-
-        if (Array.isArray(landmarks) && landmarks.length >= 21) {
-          ctx.strokeStyle = 'rgba(52, 211, 153, 0.85)';
-          ctx.lineWidth = 2;
-          for (const [a, b] of MP_HAND_CONNECTIONS) {
-            const pa = landmarks[a];
-            const pb = landmarks[b];
-            if (!pa || !pb) continue;
-            const [ax, ay] = mapNormToCanvasIntrinsic(pa[0], pa[1], vw, vh, cw, ch);
-            const [bx, by] = mapNormToCanvasIntrinsic(pb[0], pb[1], vw, vh, cw, ch);
-            ctx.beginPath();
-            ctx.moveTo(ax, ay);
-            ctx.lineTo(bx, by);
-            ctx.stroke();
+          if (Array.isArray(landmarks) && landmarks.length >= 21) {
+            ctx.strokeStyle = style.skel;
+            ctx.lineWidth = 2;
+            for (const [a, b] of MP_HAND_CONNECTIONS) {
+              const pa = landmarks[a];
+              const pb = landmarks[b];
+              if (!pa || !pb) continue;
+              const [ax, ay] = mapNormToCanvasIntrinsic(pa[0], pa[1], vw, vh, cw, ch);
+              const [bx, by] = mapNormToCanvasIntrinsic(pb[0], pb[1], vw, vh, cw, ch);
+              ctx.beginPath();
+              ctx.moveTo(ax, ay);
+              ctx.lineTo(bx, by);
+              ctx.stroke();
+            }
+            ctx.fillStyle = style.joint;
+            for (const p of landmarks) {
+              if (!p) continue;
+              const [px, py] = mapNormToCanvasIntrinsic(p[0], p[1], vw, vh, cw, ch);
+              ctx.beginPath();
+              ctx.arc(px, py, 3.5, 0, Math.PI * 2);
+              ctx.fill();
+            }
           }
-          ctx.fillStyle = 'rgba(250, 250, 250, 0.95)';
-          for (const p of landmarks) {
-            if (!p) continue;
-            const [px, py] = mapNormToCanvasIntrinsic(p[0], p[1], vw, vh, cw, ch);
-            ctx.beginPath();
-            ctx.arc(px, py, 3.5, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
+        });
       } else if (!useRestPolling) {
         ctx.font = '600 13px system-ui, sans-serif';
         ctx.fillStyle = 'rgba(250, 204, 21, 0.95)';
         ctx.textAlign = 'center';
-        ctx.fillText('No hand detected — show your hand to the camera', cw / 2, ch - 16);
+        ctx.fillText('No hands detected — show both hands to the camera', cw / 2, ch - 16);
       }
     };
 
@@ -213,7 +229,7 @@ const WebcamCapture = ({
       ro.disconnect();
       video.removeEventListener('loadedmetadata', onVideo);
     };
-  }, [capturing, handOverlay, useRestPolling]);
+  }, [capturing, handsToDraw, useRestPolling]);
 
   const toggleCapture = () => {
     setCapturing(!capturing);
@@ -330,7 +346,7 @@ const WebcamCapture = ({
         </h3>
         <ul className="text-gray-300 text-sm space-y-1">
           <li>• Ensure good lighting on your hands</li>
-          <li>• In WebRTC mode, follow the cyan box and green hand skeleton on your hand</li>
+          <li>• In WebRTC or REST mode, cyan and pink boxes show each detected hand with skeleton</li>
           <li>• Hold each sign steady for 2–3 seconds</li>
           <li>• Position yourself centered in the webcam</li>
         </ul>

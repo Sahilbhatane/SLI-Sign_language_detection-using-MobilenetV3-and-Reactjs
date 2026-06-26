@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import WebcamCapture from './WebcamCapture';
 import { startWebRtcSession } from '../services/webrtcClient';
+import { normalizeHandOverlayList } from '../utils/handOverlay';
 
 /**
  * Orchestrates WebRTC vs REST: on detection start, try WebRTC; on failure or disconnect, REST polling resumes.
@@ -29,10 +30,17 @@ const CameraPanel = ({ onDetection, isActive, transport, onTransportChange, onFp
       if (!msg?.success) return;
       const c = Number(msg.confidence) ?? 0;
       const confidence01 = c > 1 ? c / 100 : c;
-      if (Array.isArray(msg.hand_bbox_norm) && msg.hand_bbox_norm.length === 4) {
+      if (Array.isArray(msg.hands) && msg.hands.length > 0) {
+        const hands = normalizeHandOverlayList(msg);
+        setHandOverlay(hands.length > 0 ? { hands } : null);
+      } else if (Array.isArray(msg.hand_bbox_norm) && msg.hand_bbox_norm.length === 4) {
         setHandOverlay({
-          bbox: msg.hand_bbox_norm,
-          landmarks: Array.isArray(msg.hand_landmarks_norm) ? msg.hand_landmarks_norm : null,
+          hands: [
+            {
+              bbox: msg.hand_bbox_norm,
+              landmarks: Array.isArray(msg.hand_landmarks_norm) ? msg.hand_landmarks_norm : null,
+            },
+          ],
         });
       } else {
         setHandOverlay(null);
@@ -95,12 +103,6 @@ const CameraPanel = ({ onDetection, isActive, transport, onTransportChange, onFp
   }, []);
 
   useEffect(() => () => stopWebRtc(), [stopWebRtc]);
-
-  useEffect(() => {
-    if (useRestPolling) {
-      setHandOverlay(null);
-    }
-  }, [useRestPolling]);
 
   return (
     <div className="space-y-2">

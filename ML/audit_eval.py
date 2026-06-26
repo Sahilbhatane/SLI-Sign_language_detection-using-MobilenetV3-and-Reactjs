@@ -82,7 +82,7 @@ def build_crop_fn():
     if not mp_path.is_file():
         ensure_hand_landmarker_model(dest=mp_path)
     hands = TasksHandsCompat(
-        num_hands=1,
+        num_hands=2,
         min_hand_detection_confidence=0.25,
         min_hand_presence_confidence=0.25,
         min_tracking_confidence=0.25,

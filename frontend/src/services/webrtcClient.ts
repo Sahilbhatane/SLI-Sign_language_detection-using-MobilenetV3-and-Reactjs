@@ -3,6 +3,11 @@
  * ICE trickle is not implemented; use TURN for strict NAT environments.
  */
 
+export type HandOverlayPayload = {
+  bbox_norm: number[];
+  landmarks_norm?: [number, number][] | null;
+};
+
 export type PredictionMessage = {
   type: 'prediction';
   success: boolean;
@@ -11,9 +16,11 @@ export type PredictionMessage = {
   predictions: unknown;
   /** True when MediaPipe found a hand for this frame (same crop as ONNX). */
   hand_detected?: boolean;
-  /** [x1, y1, x2, y2] in 0–1 relative to full frame (before crop). */
+  /** Per-hand overlays (preferred; up to 2 hands). */
+  hands?: HandOverlayPayload[] | null;
+  /** [x1, y1, x2, y2] union bbox in 0–1 (legacy / first hand). */
   hand_bbox_norm?: number[] | null;
-  /** 21 points [[x,y], ...] in 0–1 image space. */
+  /** 21 points [[x,y], ...] in 0–1 image space (legacy / first hand). */
   hand_landmarks_norm?: [number, number][] | null;
 };
 

@@ -18,21 +18,51 @@ from fastapi import APIRouter, FastAPI, WebSocket, WebSocketDisconnect
 logger = logging.getLogger(__name__)
 
 
-def _overlay_json_payload(model: Any) -> Tuple[bool, Optional[List[float]], Optional[List[List[float]]]]:
+from ensemble_inference import mirror_overlay_hands_norm_x
+
+
+def _overlay_json_payload(model: Any) -> Tuple[bool, Optional[List[float]], Optional[List[List[float]]], List[Dict[str, Any]]]:
     """Plain floats/lists for JSON (avoids numpy scalar serialization issues)."""
+    hands = getattr(model, "get_overlay_hands_json", None)
+    hands_list: List[Dict[str, Any]] = hands() if callable(hands) else []
+    if not hands_list:
+        hands_raw = getattr(model, "last_overlay_hands_norm", None) or []
+        for h in hands_raw:
+            b = h.get("bbox_norm")
+            if not isinstance(b, (list, tuple)) or len(b) != 4:
+                continue
+            lms = h.get("landmarks_norm")
+            entry: Dict[str, Any] = {
+                "bbox_norm": [float(b[0]), float(b[1]), float(b[2]), float(b[3])],
+            }
+            if isinstance(lms, list) and lms:
+                entry["landmarks_norm"] = [[float(p[0]), float(p[1])] for p in lms[:21]]
+            hands_list.append(entry)
+
     bbox = getattr(model, "last_overlay_bbox_norm", None)
     lms = getattr(model, "last_overlay_landmarks_norm", None)
-    if not bbox or len(bbox) != 4:
-        return False, None, None
-    bbox_list = [float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])]
+    if not hands_list and (not bbox or len(bbox) != 4):
+        return False, None, None, []
+    bbox_list: Optional[List[float]] = None
     lms_list: Optional[List[List[float]]] = None
+    if bbox and len(bbox) == 4:
+        bbox_list = [float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])]
     if lms and len(lms) >= 1:
         lms_list = [[float(p[0]), float(p[1])] for p in lms[:21]]
-    return True, bbox_list, lms_list
+    if not hands_list and bbox_list:
+        hands_list = [{"bbox_norm": bbox_list, "landmarks_norm": lms_list}]
+    return len(hands_list) > 0, bbox_list, lms_list, hands_list
 
 
 def _mirror_overlay_norm_x(model: Any) -> None:
     """Map landmark/bbox from horizontally flipped image back to original camera x (0–1)."""
+    hands = getattr(model, "last_overlay_hands_norm", None)
+    if hands:
+        model.last_overlay_hands_norm = mirror_overlay_hands_norm_x(hands)
+        sync = getattr(model, "_sync_legacy_overlay_fields", None)
+        if callable(sync):
+            sync()
+        return
     b = getattr(model, "last_overlay_bbox_norm", None)
     if b is not None and len(b) == 4:
         x1, y1, x2, y2 = float(b[0]), float(b[1]), float(b[2]), float(b[3])
@@ -110,12 +140,15 @@ def register_webrtc(app: FastAPI, get_model: Callable[[], Any]) -> None:
                                     pil = Image.fromarray(rgb)
                                     arr = model.preprocess_image(pil)
                                     if (
-                                        getattr(model, "last_overlay_bbox_norm", None) is None
+                                        not getattr(model, "last_overlay_hands_norm", None)
+                                        and getattr(model, "last_overlay_bbox_norm", None) is None
                                         and os.getenv("WEBRTC_TRY_FLIPPED", "1").strip() != "0"
                                     ):
                                         rgb_f = cv2.flip(rgb, 1)
                                         arr2 = model.preprocess_image(Image.fromarray(rgb_f))
-                                        if getattr(model, "last_overlay_bbox_norm", None) is not None:
+                                        if getattr(model, "last_overlay_hands_norm", None) or getattr(
+                                            model, "last_overlay_bbox_norm", None
+                                        ) is not None:
                                             _mirror_overlay_norm_x(model)
                                             arr = arr2
                                     preds = model.predict_top_k(arr, k=3)
@@ -126,7 +159,7 @@ def register_webrtc(app: FastAPI, get_model: Callable[[], Any]) -> None:
                                     if top["confidence"] >= min_conf:
                                         pred_label = top["class"]
                                         pred_conf_percent = top["confidence_percent"]
-                                    overlay_ok, bbox_list, lms_list = _overlay_json_payload(model)
+                                    overlay_ok, bbox_list, lms_list, hands_list = _overlay_json_payload(model)
                                     await safe_send(
                                         {
                                             "type": "prediction",
@@ -135,6 +168,7 @@ def register_webrtc(app: FastAPI, get_model: Callable[[], Any]) -> None:
                                             "confidence": pred_conf_percent,
                                             "predictions": preds,
                                             "hand_detected": overlay_ok,
+                                            "hands": hands_list,
                                             "hand_bbox_norm": bbox_list,
                                             "hand_landmarks_norm": lms_list,
                                         }

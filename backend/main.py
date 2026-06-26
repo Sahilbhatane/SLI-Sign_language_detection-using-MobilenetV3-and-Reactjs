@@ -71,6 +71,12 @@ class Prediction(BaseModel):
     confidence_percent: float
 
 
+class HandOverlay(BaseModel):
+    """Per-hand MediaPipe overlay in normalized 0–1 image coordinates."""
+    bbox_norm: list[float]
+    landmarks_norm: Optional[list[list[float]]] = None
+
+
 class PredictionResponse(BaseModel):
     """Response model for prediction endpoint"""
     success: bool
@@ -79,6 +85,10 @@ class PredictionResponse(BaseModel):
     predictions: list[Prediction]
     processing_time_ms: float
     min_confidence: float = Field(default=0.6, description="Threshold used for this response (0-1)")
+    hand_detected: bool = False
+    hands: list[HandOverlay] = Field(default_factory=list)
+    hand_bbox_norm: Optional[list[float]] = None
+    hand_landmarks_norm: Optional[list[list[float]]] = None
 
 
 class HealthResponse(BaseModel):
@@ -237,6 +247,9 @@ async def predict_sign(request: PredictionRequest):
             pred_conf_percent = top['confidence_percent']
 
         # Build response
+        hands_json = model_instance.get_overlay_hands_json()
+        legacy_bbox = model_instance.last_overlay_bbox_norm
+        legacy_lms = model_instance.last_overlay_landmarks_norm
         response = PredictionResponse(
             success=True,
             prediction=pred_label,
@@ -244,6 +257,10 @@ async def predict_sign(request: PredictionRequest):
             predictions=[Prediction(**pred) for pred in predictions],
             processing_time_ms=round(processing_time, 2),
             min_confidence=min_conf,
+            hand_detected=len(hands_json) > 0,
+            hands=[HandOverlay(**h) for h in hands_json],
+            hand_bbox_norm=list(legacy_bbox) if legacy_bbox and len(legacy_bbox) == 4 else None,
+            hand_landmarks_norm=legacy_lms if legacy_lms else None,
         )
         
         logger.info(f"✓ Prediction: {response.prediction} ({response.confidence:.2f}%) - {processing_time:.2f}ms")

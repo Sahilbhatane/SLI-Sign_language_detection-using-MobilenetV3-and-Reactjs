@@ -17,8 +17,43 @@ import onnxruntime as ort
 
 logger = logging.getLogger(__name__)
 
+
+def _downscale_for_detection(image_np: np.ndarray, max_side: int) -> np.ndarray:
+    """
+    Downscale an RGB frame so its longest side is <= max_side, for MediaPipe detection.
+    MediaPipe landmarks are normalized (0-1), so overlay/crop coordinates are unaffected.
+    Detecting near the palm model's trained resolution is faster AND more reliable than
+    full 640px (benchmarked in ML/bench_mediapipe.py). max_side <= 0 disables downscaling.
+    """
+    if max_side <= 0:
+        return image_np
+    h, w = image_np.shape[:2]
+    longest = max(h, w)
+    if longest <= max_side:
+        return image_np
+    scale = max_side / float(longest)
+    nw = max(1, int(round(w * scale)))
+    nh = max(1, int(round(h * scale)))
+    resized = Image.fromarray(image_np).resize((nw, nh), Image.BILINEAR)
+    return np.ascontiguousarray(np.asarray(resized, dtype=np.uint8))
+
 # ~20% padding on hand axis-aligned bounding box (from 21 keypoints)
 HAND_BBOX_PAD_FRAC = 0.2
+
+
+def hand_bbox_union(
+    boxes: List[Tuple[int, int, int, int]],
+) -> Optional[Tuple[int, int, int, int]]:
+    """Axis-aligned union of hand boxes (for two-handed signs / overlay)."""
+    if not boxes:
+        return None
+    x1 = min(b[0] for b in boxes)
+    y1 = min(b[1] for b in boxes)
+    x2 = max(b[2] for b in boxes)
+    y2 = max(b[3] for b in boxes)
+    if x2 <= x1 or y2 <= y1:
+        return None
+    return (x1, y1, x2, y2)
 
 
 def hand_bbox_from_landmarks(
@@ -67,6 +102,46 @@ def wrist_relative_hand_landmarks(landmark_list) -> np.ndarray:
     return out
 
 
+def overlay_hands_from_landmark_results(
+    multi_hand_landmarks, width: int, height: int, pad_frac: float = HAND_BBOX_PAD_FRAC
+) -> List[Dict[str, Any]]:
+    """
+    Build per-hand overlay dicts: bbox_norm + landmarks_norm (0–1 image space).
+    """
+    if not multi_hand_landmarks or width <= 0 or height <= 0:
+        return []
+    hands_out: List[Dict[str, Any]] = []
+    wf, hf = float(width), float(height)
+    for hand_lms in multi_hand_landmarks:
+        lms = list(hand_lms.landmark)
+        box = hand_bbox_from_landmarks(lms, width, height, pad_frac)
+        if box is None:
+            continue
+        x1, y1, x2, y2 = box
+        hands_out.append({
+            "bbox_norm": [x1 / wf, y1 / hf, x2 / wf, y2 / hf],
+            "landmarks_norm": [[float(lm.x), float(lm.y)] for lm in lms[:21]],
+        })
+    return hands_out
+
+
+def mirror_overlay_hands_norm_x(hands: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Flip normalized x for selfie-mirrored retry (map back to original camera frame)."""
+    mirrored: List[Dict[str, Any]] = []
+    for h in hands:
+        b = h.get("bbox_norm")
+        lms = h.get("landmarks_norm")
+        entry: Dict[str, Any] = {}
+        if isinstance(b, (list, tuple)) and len(b) == 4:
+            x1, y1, x2, y2 = float(b[0]), float(b[1]), float(b[2]), float(b[3])
+            entry["bbox_norm"] = [1.0 - x2, y1, 1.0 - x1, y2]
+        if isinstance(lms, list) and lms:
+            entry["landmarks_norm"] = [[1.0 - float(p[0]), float(p[1])] for p in lms[:21]]
+        if entry:
+            mirrored.append(entry)
+    return mirrored
+
+
 class ONNXSignLanguageModel:
     """
     ONNX Sign Language Recognition Model Handler
@@ -103,6 +178,16 @@ class ONNXSignLanguageModel:
 
         sess_options = ort.SessionOptions()
         sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        # CPU latency tuning (onnxruntime.ai threading guide). All env-overridable.
+        try:
+            sess_options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+            _intra = os.environ.get("ORT_INTRA_OP_THREADS")
+            if _intra is not None:
+                sess_options.intra_op_num_threads = max(0, int(_intra))
+            sess_options.add_session_config_entry("session.dynamic_block_base", "4")
+            sess_options.add_session_config_entry("session.intra_op.allow_spinning", "1")
+        except Exception as e:
+            logger.warning("ORT session tuning skipped: %s", e)
 
         providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
         try:
@@ -182,6 +267,25 @@ class ONNXSignLanguageModel:
         # Normalized 0–1 in full input image (for client overlay on same frame as inference)
         self.last_overlay_bbox_norm: Optional[Tuple[float, float, float, float]] = None
         self.last_overlay_landmarks_norm: Optional[List[List[float]]] = None
+        self.last_overlay_hands_norm: List[Dict[str, Any]] = []
+        _num_hands_env = os.environ.get("MEDIAPIPE_NUM_HANDS", "2").strip()
+        try:
+            self.mediapipe_num_hands = max(1, min(2, int(_num_hands_env)))
+        except ValueError:
+            self.mediapipe_num_hands = 2
+        # VIDEO running mode (temporal tracking) is ~1.6-1.9x faster on CPU for a live
+        # stream than IMAGE mode. Default to video; set MEDIAPIPE_RUNNING_MODE=image for
+        # scoring unrelated still frames. Downscaling detection input to ~320px is faster
+        # and more reliable than full 640px (landmarks are normalized, so overlay/crop
+        # coordinates are unchanged). MEDIAPIPE_MAX_SIDE=0 disables downscaling.
+        self.mediapipe_running_mode = os.environ.get("MEDIAPIPE_RUNNING_MODE", "video").strip().lower()
+        if self.mediapipe_running_mode not in ("image", "video"):
+            self.mediapipe_running_mode = "video"
+        _max_side_env = os.environ.get("MEDIAPIPE_MAX_SIDE", "320").strip()
+        try:
+            self.mediapipe_max_side = max(0, int(_max_side_env))
+        except ValueError:
+            self.mediapipe_max_side = 320
         # Always try to load Hands so WebRTC overlay works even when ENABLE_MEDIAPIPE_CROP=0.
         # mediapipe>=0.10.30 wheels removed `mediapipe.solutions`; use Tasks HandLandmarker.
         try:
@@ -196,20 +300,30 @@ class ONNXSignLanguageModel:
             model_path = resolve_hand_landmarker_model_path()
             if not model_path.is_file():
                 ensure_hand_landmarker_model(dest=model_path)
-            logger.info("Initializing MediaPipe Tasks HandLandmarker (model=%s)", model_path)
+            logger.info(
+                "Initializing MediaPipe Tasks HandLandmarker (model=%s, mode=%s, max_side=%d)",
+                model_path, self.mediapipe_running_mode, self.mediapipe_max_side,
+            )
             self._mp_hands = TasksHandsCompat(
-                num_hands=1,
+                num_hands=self.mediapipe_num_hands,
                 min_hand_detection_confidence=0.25,
                 min_hand_presence_confidence=0.25,
                 min_tracking_confidence=0.25,
                 model_path=model_path,
+                running_mode=self.mediapipe_running_mode,
             )
             if self.enable_mediapipe_crop:
-                logger.info("MediaPipe hand detection + crop enabled (IMAGE mode, num_hands=1)")
+                logger.info(
+                    "MediaPipe hand detection + crop enabled (IMAGE mode, num_hands=%d)",
+                    self.mediapipe_num_hands,
+                )
             elif self.landmark_session is not None:
                 logger.info("MediaPipe landmark vectors enabled (landmark model loaded)")
             else:
-                logger.info("MediaPipe Hands loaded for live overlay (crop disabled)")
+                logger.info(
+                    "MediaPipe Hands loaded for live overlay (crop disabled, num_hands=%d)",
+                    self.mediapipe_num_hands,
+                )
         except Exception as e:
             logger.warning("Failed to initialize MediaPipe: %s", e, exc_info=True)
             self._mp_hands = None
@@ -239,22 +353,41 @@ class ONNXSignLanguageModel:
 
         self._initialized = True
 
-    def _extract_landmarks(self, image: Image.Image) -> Optional[np.ndarray]:
-        """Run MediaPipe on a PIL image and return 63-dim (x,y,z)*21 vector (optional legacy path)."""
-        if self._mp_hands is None:
-            return None
-        try:
-            img_np = np.array(image, dtype=np.uint8)
-            if img_np.ndim != 3 or img_np.shape[2] != 3:
-                return None
-            results = self._mp_hands.process(img_np)
-            if not results.multi_hand_landmarks:
-                return None
-            hand_lms = results.multi_hand_landmarks[0]
-            pts = [v for lm in hand_lms.landmark for v in (lm.x, lm.y, lm.z)]
-            return np.array(pts, dtype=np.float32)
-        except Exception:
-            return None
+    def _sync_legacy_overlay_fields(self) -> None:
+        """Keep single-hand legacy fields in sync with last_overlay_hands_norm."""
+        hands = self.last_overlay_hands_norm or []
+        if not hands:
+            self.last_overlay_bbox_norm = None
+            self.last_overlay_landmarks_norm = None
+            return
+        xs1 = [float(h["bbox_norm"][0]) for h in hands if h.get("bbox_norm")]
+        ys1 = [float(h["bbox_norm"][1]) for h in hands if h.get("bbox_norm")]
+        xs2 = [float(h["bbox_norm"][2]) for h in hands if h.get("bbox_norm")]
+        ys2 = [float(h["bbox_norm"][3]) for h in hands if h.get("bbox_norm")]
+        if xs1 and ys1 and xs2 and ys2:
+            self.last_overlay_bbox_norm = (min(xs1), min(ys1), max(xs2), max(ys2))
+        first_lms = hands[0].get("landmarks_norm")
+        self.last_overlay_landmarks_norm = (
+            [[float(p[0]), float(p[1])] for p in first_lms[:21]]
+            if isinstance(first_lms, list) and first_lms
+            else None
+        )
+
+    def get_overlay_hands_json(self) -> List[Dict[str, Any]]:
+        """JSON-serializable per-hand overlay for REST/WebRTC clients."""
+        out: List[Dict[str, Any]] = []
+        for h in self.last_overlay_hands_norm or []:
+            b = h.get("bbox_norm")
+            if not isinstance(b, (list, tuple)) or len(b) != 4:
+                continue
+            lms = h.get("landmarks_norm")
+            entry: Dict[str, Any] = {
+                "bbox_norm": [float(b[0]), float(b[1]), float(b[2]), float(b[3])],
+            }
+            if isinstance(lms, list) and lms:
+                entry["landmarks_norm"] = [[float(p[0]), float(p[1])] for p in lms[:21]]
+            out.append(entry)
+        return out
 
     def _infer_target_size(self, input_shape: list) -> Tuple[int, int]:
         try:
@@ -288,6 +421,23 @@ class ONNXSignLanguageModel:
             except Exception as e:
                 logger.warning(f"Failed to read temperature from {path}: {e}")
 
+    def _extract_landmarks(self, image: Image.Image) -> Optional[np.ndarray]:
+        """Run MediaPipe on a PIL image and return 63-dim (x,y,z)*21 vector (first hand)."""
+        if self._mp_hands is None:
+            return None
+        try:
+            img_np = np.array(image, dtype=np.uint8)
+            if img_np.ndim != 3 or img_np.shape[2] != 3:
+                return None
+            results = self._mp_hands.process(img_np)
+            if not results.multi_hand_landmarks:
+                return None
+            hand_lms = results.multi_hand_landmarks[0]
+            pts = [v for lm in hand_lms.landmark for v in (lm.x, lm.y, lm.z)]
+            return np.array(pts, dtype=np.float32)
+        except Exception:
+            return None
+
     def preprocess_image(self, image: Image.Image, target_size: tuple = None) -> np.ndarray:
         try:
             if image.mode != 'RGB':
@@ -297,6 +447,7 @@ class ONNXSignLanguageModel:
             self._last_mp_raw_landmark_vec = None
             self.last_overlay_bbox_norm = None
             self.last_overlay_landmarks_norm = None
+            self.last_overlay_hands_norm = []
             ts = target_size or self.target_size or (224, 224)
             h_out, w_out = int(ts[0]), int(ts[1])
 
@@ -305,37 +456,46 @@ class ONNXSignLanguageModel:
             if self._mp_hands is not None and image_np.ndim == 3 and image_np.shape[2] == 3:
                 try:
                     H, W, _ = image_np.shape
-                    results = self._mp_hands.process(image_np)
+                    # Detect on a downscaled copy (faster + more reliable); landmarks are
+                    # normalized so all bbox/overlay/crop math below uses full W, H.
+                    det_np = _downscale_for_detection(image_np, self.mediapipe_max_side)
+                    results = self._mp_hands.process(det_np)
                     if results.multi_hand_landmarks:
+                        self.last_overlay_hands_norm = overlay_hands_from_landmark_results(
+                            results.multi_hand_landmarks, W, H, HAND_BBOX_PAD_FRAC
+                        )
+                        self._sync_legacy_overlay_fields()
+
+                        # Legacy landmark vectors: primary (first) hand
                         hand_lms = results.multi_hand_landmarks[0]
                         lms = list(hand_lms.landmark)
                         self.last_wrist_norm_landmarks = wrist_relative_hand_landmarks(lms)
                         self._last_mp_raw_landmark_vec = np.array(
                             [v for lm in lms for v in (lm.x, lm.y, lm.z)], dtype=np.float32
                         )
-                        box = hand_bbox_from_landmarks(lms, W, H, HAND_BBOX_PAD_FRAC)
-                        if box is not None:
-                            x1, y1, x2, y2 = box
-                            self.last_overlay_bbox_norm = (
-                                x1 / float(W),
-                                y1 / float(H),
-                                x2 / float(W),
-                                y2 / float(H),
+
+                        pixel_boxes: List[Tuple[int, int, int, int]] = []
+                        for hand in results.multi_hand_landmarks:
+                            b = hand_bbox_from_landmarks(
+                                list(hand.landmark), W, H, HAND_BBOX_PAD_FRAC
                             )
-                            self.last_overlay_landmarks_norm = [
-                                [float(lm.x), float(lm.y)] for lm in lms[:21]
-                            ]
+                            if b is not None:
+                                pixel_boxes.append(b)
+                        union_box = hand_bbox_union(pixel_boxes)
+
                         if self.enable_mediapipe_crop:
-                            if box is None:
+                            if union_box is None:
                                 self.last_hand_detected = False
+                                self.last_overlay_hands_norm = []
                                 self.last_overlay_bbox_norm = None
                                 self.last_overlay_landmarks_norm = None
                                 img_std = np.full((h_out, w_out, 3), -1.0, dtype=np.float32)
                                 return np.expand_dims(img_std, axis=0)
-                            x1, y1, x2, y2 = box
+                            x1, y1, x2, y2 = union_box
                             crop = image_np[y1:y2, x1:x2]
                             if crop.size == 0:
                                 self.last_hand_detected = False
+                                self.last_overlay_hands_norm = []
                                 self.last_overlay_bbox_norm = None
                                 self.last_overlay_landmarks_norm = None
                                 img_std = np.full((h_out, w_out, 3), -1.0, dtype=np.float32)
@@ -346,9 +506,11 @@ class ONNXSignLanguageModel:
                             self.last_hand_detected = True
                     elif self.enable_mediapipe_crop:
                         self.last_hand_detected = False
+                        self.last_overlay_hands_norm = []
                         img_std = np.full((h_out, w_out, 3), -1.0, dtype=np.float32)
                         return np.expand_dims(img_std, axis=0)
                     else:
+                        self.last_overlay_hands_norm = []
                         # No hand found, crop disabled: gate to "Detecting..." when
                         # hand gating is on; otherwise predict on the full frame.
                         self.last_hand_detected = not self.hand_gating
@@ -356,6 +518,7 @@ class ONNXSignLanguageModel:
                     logger.debug(f"MediaPipe failed: {e}")
                     if self.enable_mediapipe_crop:
                         self.last_hand_detected = False
+                        self.last_overlay_hands_norm = []
                         img_std = np.full((h_out, w_out, 3), -1.0, dtype=np.float32)
                         return np.expand_dims(img_std, axis=0)
                     # Transient MediaPipe error: keep predicting on the full frame.
@@ -368,16 +531,11 @@ class ONNXSignLanguageModel:
             # keeping inference preprocessing identical to training preprocessing.
             image = image.resize((w_out, h_out), Image.Resampling.BILINEAR)
 
-            img = np.array(image, dtype=np.float32)
-            # Match ML/train_mobilenet.py: image / 127.5 - 1.0 -> [-1, 1]
-            try:
-                import tensorflow as tf  # optional; numpy path matches training numerics
-                tensor = tf.convert_to_tensor(img)
-                img_std = (tensor / 127.5 - 1.0).numpy()
-            except Exception as e:
-                logger.warning(f"TF normalize failed, using numpy fallback: {e}")
-                img_std = img / 127.5 - 1.0
-
+            # Match training: image / 127.5 - 1.0 -> [-1, 1]. This is a linear float32 op,
+            # so NumPy is bit-equivalent to the TF training path (see ML/test_preprocess_norm.py)
+            # while avoiding TensorFlow import/convert overhead on every frame.
+            img = np.asarray(image, dtype=np.float32)
+            img_std = img / 127.5 - 1.0
             img_std = np.expand_dims(img_std, axis=0)
             return img_std
         except Exception as e:

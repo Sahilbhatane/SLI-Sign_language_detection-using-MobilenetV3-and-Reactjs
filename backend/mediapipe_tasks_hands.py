@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
+import time
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -124,6 +126,17 @@ class TasksHandsCompat:
     """
     Drop-in subset of mp.solutions.hands.Hands: .process(rgb_uint8) -> object with
     .multi_hand_landmarks; supports context manager for cleanup.
+
+    running_mode:
+      - "video" (default for live): uses temporal tracking so the heavy palm
+        detector only re-runs when the hand is lost. ~1.6-1.9x faster than IMAGE
+        on CPU for a continuous stream (benchmarked in ML/bench_mediapipe.py).
+      - "image": full detection on every call. Use for unrelated still images
+        (e.g. ML/preprocess_hands.py batch crops).
+
+    Thread-safety: a single global model serves REST + WebRTC. VIDEO mode keeps
+    per-frame tracking state and requires monotonically increasing timestamps, so
+    process() is serialized by a lock and uses an internal monotonic clock.
     """
 
     def __init__(
@@ -134,15 +147,27 @@ class TasksHandsCompat:
         min_hand_presence_confidence: float = 0.25,
         min_tracking_confidence: float = 0.25,
         model_path: Optional[Path] = None,
+        running_mode: str = "image",
     ) -> None:
         from mediapipe.tasks.python.core import base_options
         from mediapipe.tasks.python.vision import HandLandmarker, HandLandmarkerOptions
         from mediapipe.tasks.python.vision.core import vision_task_running_mode
 
+        mode = str(running_mode or "image").strip().lower()
+        if mode not in ("image", "video"):
+            logger.warning("Unknown running_mode=%r; falling back to 'image'", running_mode)
+            mode = "image"
+        self.running_mode = mode
+        run_mode_enum = (
+            vision_task_running_mode.VisionTaskRunningMode.VIDEO
+            if mode == "video"
+            else vision_task_running_mode.VisionTaskRunningMode.IMAGE
+        )
+
         mp_path = model_path or ensure_hand_landmarker_model()
         opts = HandLandmarkerOptions(
             base_options=base_options.BaseOptions(model_asset_path=str(mp_path)),
-            running_mode=vision_task_running_mode.VisionTaskRunningMode.IMAGE,
+            running_mode=run_mode_enum,
             num_hands=int(num_hands),
             min_hand_detection_confidence=float(min_hand_detection_confidence),
             min_hand_presence_confidence=float(min_hand_presence_confidence),
@@ -152,6 +177,16 @@ class TasksHandsCompat:
         from mediapipe.tasks.python.vision.core import image as mp_image_module
 
         self._mp_image_module = mp_image_module
+        self._lock = threading.Lock()
+        self._last_ts_ms = 0
+
+    def _next_timestamp_ms(self) -> int:
+        # Strictly monotonic across all callers (REST + WebRTC interleaving).
+        ts = int(time.monotonic() * 1000)
+        if ts <= self._last_ts_ms:
+            ts = self._last_ts_ms + 1
+        self._last_ts_ms = ts
+        return ts
 
     def process(self, image_np: np.ndarray) -> SimpleNamespace:
         if image_np.dtype != np.uint8:
@@ -160,7 +195,11 @@ class TasksHandsCompat:
             image_np = np.ascontiguousarray(image_np)
         fmt = self._mp_image_module.ImageFormat.SRGB
         mp_image = self._mp_image_module.Image(fmt, image_np)
-        result = self._landmarker.detect(mp_image)
+        with self._lock:
+            if self.running_mode == "video":
+                result = self._landmarker.detect_for_video(mp_image, self._next_timestamp_ms())
+            else:
+                result = self._landmarker.detect(mp_image)
         lms = tasks_result_to_multi_hand_landmarks(result)
         return SimpleNamespace(multi_hand_landmarks=lms)
 
