@@ -7,12 +7,34 @@ import { normalizeHandOverlayList } from '../utils/handOverlay';
 /**
  * Orchestrates WebRTC vs REST: on detection start, try WebRTC; on failure or disconnect, REST polling resumes.
  */
-const CameraPanel = ({ onDetection, isActive, transport, onTransportChange, onFpsSample }) => {
+const CameraPanel = ({
+  onDetection,
+  isActive,
+  transport,
+  onTransportChange,
+  onFpsSample,
+  onWebRtcFallback,
+}) => {
   const streamRef = useRef(null);
   const sessionRef = useRef(null);
   const startGenRef = useRef(0);
+  const fallbackReasonRef = useRef(null);
   const [useRestPolling, setUseRestPolling] = useState(true);
   const [handOverlay, setHandOverlay] = useState(null);
+
+  const resetFallbackReason = useCallback(() => {
+    fallbackReasonRef.current = null;
+    onWebRtcFallback?.(null);
+  }, [onWebRtcFallback]);
+
+  const reportFallbackReason = useCallback(
+    (reason) => {
+      if (!reason) return;
+      fallbackReasonRef.current = reason;
+      onWebRtcFallback?.(reason);
+    },
+    [onWebRtcFallback]
+  );
 
   const stopWebRtc = useCallback(() => {
     try {
@@ -65,6 +87,7 @@ const CameraPanel = ({ onDetection, isActive, transport, onTransportChange, onFp
       }
 
       const gen = ++startGenRef.current;
+      resetFallbackReason();
       const stream = streamRef.current;
       if (!stream) {
         setUseRestPolling(true);
@@ -74,7 +97,8 @@ const CameraPanel = ({ onDetection, isActive, transport, onTransportChange, onFp
 
       try {
         const session = await startWebRtcSession(stream, onPred, {
-          onFallback: () => {
+          onFallback: (reason) => {
+            reportFallbackReason(reason);
             sessionRef.current = null;
             setUseRestPolling(true);
             onTransportChange?.('rest');
@@ -90,12 +114,15 @@ const CameraPanel = ({ onDetection, isActive, transport, onTransportChange, onFp
       } catch (e) {
         if (gen !== startGenRef.current) return;
         console.warn('WebRTC session failed, using REST polling', e);
+        if (!fallbackReasonRef.current) {
+          reportFallbackReason('webrtc:error');
+        }
         sessionRef.current = null;
         setUseRestPolling(true);
         onTransportChange?.('rest');
       }
     },
-    [onPred, onTransportChange, stopWebRtc]
+    [onPred, onTransportChange, reportFallbackReason, resetFallbackReason, stopWebRtc]
   );
 
   const handleUserMedia = useCallback((stream) => {

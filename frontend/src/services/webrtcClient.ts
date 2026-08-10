@@ -47,6 +47,17 @@ function parseIceServers(): RTCIceServer[] {
   return raw.split(',').map((u) => ({ urls: u.trim() }));
 }
 
+const SAFE_SERVER_REASON = /^[a-z0-9:_-]{1,48}$/i;
+
+function formatServerReason(raw: unknown): string {
+  if (typeof raw !== 'string') return 'server:error';
+  const trimmed = raw.trim().toLowerCase();
+  if (!trimmed || trimmed.length > 48 || !SAFE_SERVER_REASON.test(trimmed)) {
+    return 'server:error';
+  }
+  return `server:${trimmed}`;
+}
+
 /**
  * Starts a WebRTC session: adds tracks from `stream`, negotiates over WebSocket, then delivers predictions.
  * Call `close()` to release PC/WS and stop inference callbacks.
@@ -68,17 +79,6 @@ export async function startWebRtcSession(
     fallbackNotified = true;
     try {
       onFallback?.(reason);
-    } catch {
-      /* ignore */
-    }
-  };
-
-  const onPredictionMsg = (ev: MessageEvent) => {
-    try {
-      const msg = JSON.parse(String(ev.data));
-      if (msg?.type === 'prediction') {
-        onPrediction(msg as PredictionMessage);
-      }
     } catch {
       /* ignore */
     }
@@ -120,6 +120,21 @@ export async function startWebRtcSession(
     close();
   };
 
+  const onPredictionMsg = (ev: MessageEvent) => {
+    try {
+      const msg = JSON.parse(String(ev.data));
+      if (msg?.type === 'error') {
+        safeFallback(formatServerReason(msg.message));
+        return;
+      }
+      if (msg?.type === 'prediction') {
+        onPrediction(msg as PredictionMessage);
+      }
+    } catch {
+      /* ignore */
+    }
+  };
+
   stream.getTracks().forEach((t) => pc.addTrack(t, stream));
 
   pc.addEventListener('connectionstatechange', () => {
@@ -137,23 +152,62 @@ export async function startWebRtcSession(
   });
 
   await new Promise<void>((resolve, reject) => {
-    ws.addEventListener('open', () => resolve(), { once: true });
-    ws.addEventListener('error', () => reject(new Error('websocket_failed')), { once: true });
+    let settled = false;
+    const onOpen = () => {
+      if (settled) return;
+      settled = true;
+      ws.removeEventListener('error', onError);
+      resolve();
+    };
+    const onError = () => {
+      if (settled) return;
+      settled = true;
+      ws.removeEventListener('open', onOpen);
+      safeFallback('ws:error');
+      reject(new Error('websocket_failed'));
+    };
+    ws.addEventListener('open', onOpen, { once: true });
+    ws.addEventListener('error', onError, { once: true });
+  });
+
+  ws.addEventListener('error', () => {
+    if (!closed) safeFallback('ws:error');
   });
 
   ws.addEventListener('close', () => {
     if (!closed) safeFallback('ws:close');
   });
 
-  const offer = await pc.createOffer();
-  await pc.setLocalDescription(offer);
-  ws.send(JSON.stringify({ type: 'offer', sdp: offer.sdp, sdpType: offer.type }));
+  let offer: RTCSessionDescriptionInit;
+  try {
+    offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+  } catch (err) {
+    safeFallback('sdp:offer_failed');
+    throw err;
+  }
+
+  try {
+    ws.send(JSON.stringify({ type: 'offer', sdp: offer.sdp, sdpType: offer.type }));
+  } catch (err) {
+    safeFallback('ws:send_failed');
+    throw err;
+  }
 
   await new Promise<void>((resolve, reject) => {
     let settled = false;
     const onMsg = (ev: MessageEvent) => {
       try {
         const msg = JSON.parse(String(ev.data));
+        if (msg?.type === 'error') {
+          ws.removeEventListener('message', onMsg);
+          window.clearTimeout(timeoutId);
+          if (settled) return;
+          settled = true;
+          safeFallback(formatServerReason(msg.message));
+          reject(new Error('server_error'));
+          return;
+        }
         if (msg?.type === 'answer' && msg.sdp) {
           ws.removeEventListener('message', onMsg);
           window.clearTimeout(timeoutId);
@@ -168,8 +222,8 @@ export async function startWebRtcSession(
             .catch((e) => {
               if (settled) return;
               settled = true;
-              safeFallback('sdp_set_failed');
-              reject(e instanceof Error ? e : new Error('sdp_set_failed'));
+              safeFallback('sdp:remote_failed');
+              reject(e instanceof Error ? e : new Error('sdp_remote_failed'));
             });
         }
       } catch {
@@ -181,7 +235,7 @@ export async function startWebRtcSession(
       if (settled) return;
       settled = true;
       ws.removeEventListener('message', onMsg);
-      safeFallback('answer_timeout');
+      safeFallback('ws:answer_timeout');
       reject(new Error('webrtc_answer_timeout'));
     }, 15_000);
   });
