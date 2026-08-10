@@ -48,7 +48,7 @@ SLI/
 │   ├── 📄 onnx_utils.py          # ONNX utilities
 │   ├── 📄 test_api.py            # API tests
 │   ├── 📄 .env.example           # Environment template
-│   ├── 🤖 model.onnx             # Trained model
+│   ├── 🤖 model_v2.onnx          # Trained model
 │   └── 📄 class_labels.txt       # Class labels
 │
 ├── 📁 ML/

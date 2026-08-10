@@ -209,7 +209,7 @@ app = FastAPI()
 
 # Initialize model at startup
 model = ONNXSignLanguageModel(
-    model_path="./backend/model.onnx",
+    model_path="./backend/model_v2.onnx",
     labels_path="./backend/class_labels.txt"
 )
 
@@ -251,7 +251,7 @@ if __name__ == "__main__":
     try:
         # Initialize model
         model = ONNXSignLanguageModel(
-            model_path="./backend/model.onnx",
+            model_path="./backend/model_v2.onnx",
             labels_path="./backend/class_labels.txt"
         )
         

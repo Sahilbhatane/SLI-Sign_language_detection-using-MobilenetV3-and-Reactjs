@@ -65,6 +65,8 @@ cd frontend && npm run dev            # terminal B
 - Mixed precision (`mixed_float16`) is enabled automatically when a GPU is visible, giving a large speed-up on RTX-class cards.
 - Output files go to `backend/`: `best_model.h5`, `model_v2.onnx`, `class_labels.txt`, `training_history.png`.
 
+> Note: The project now uses `model_v2.onnx` as the default ONNX model filename. Older references to `model.onnx` should be updated. If `model_v2.onnx` is missing, the backend falls back to `model.onnx` for backward compatibility.
+
 **Why EfficientNetV2-S over MobileNetV3-Large?** Independent benchmarks show higher transfer-learning accuracy on small datasets (~0.2–0.5% average gain) with faster training on GPU thanks to fused MBConv blocks and better hardware utilization; EfficientNetV2-S is the author’s “sweet spot” for this category.
 
 **Legacy:** `ML/train_mobilenet.py` (MobileNetV3-Large) remains available via menu option `17` and is useful when targeting very constrained hardware.
