@@ -145,6 +145,13 @@ Frontend unit tests:
 cd frontend && npm test
 ```
 
+Backend integration tests (FastAPI app, fake model, no ONNX required):
+
+```bash
+cd backend
+python -m unittest test_integration_api -v
+```
+
 Preprocessing normalization parity (training <-> inference):
 
 ```bash

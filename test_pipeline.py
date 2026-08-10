@@ -15,6 +15,7 @@ import asyncio
 import subprocess
 import signal
 import platform
+import shutil
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 from datetime import datetime
@@ -167,8 +168,9 @@ class PipelineOrchestrator:
             
             # Build frontend
             self.print_info("Building frontend (this may take a minute)...")
+            npm_cmd = shutil.which("npm") or "npm"
             build_result = subprocess.run(
-                ["npm", "run", "build"],
+                [npm_cmd, "run", "build"],
                 cwd=frontend_dir,
                 capture_output=True,
                 text=True,
@@ -192,8 +194,9 @@ class PipelineOrchestrator:
             self.print_info("Starting frontend server...")
             
             if platform.system() == "Windows":
+                npx_cmd = shutil.which("npx") or "npx"
                 self.frontend_process = subprocess.Popen(
-                    ["npx", "serve", "-s", "dist", "-l", "3000"],
+                    [npx_cmd, "serve", "-s", "dist", "-l", "3000"],
                     cwd=frontend_dir,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
@@ -448,7 +451,7 @@ class PipelineOrchestrator:
                     "--model", str(model_path),
                     "--data", str(data_path),
                     "--out", "evaluation_test",
-                    "--max-samples", "5"  # Limit samples for quick test
+                    "--limit", "5"  # Limit samples for quick test
                 ],
                 capture_output=True,
                 text=True,
